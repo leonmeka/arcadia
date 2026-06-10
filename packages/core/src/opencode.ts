@@ -21,12 +21,32 @@ export function parseOpencodeModel(model: string): {
   };
 }
 
-export function buildOpencodeConfig(model: string): string {
+export function buildOpencodeConfig(
+  model: string,
+  instructionsPath: string
+): string {
   const { opencodeModel, provider, modelId } = parseOpencodeModel(model);
   return JSON.stringify(
     {
       $schema: "https://opencode.ai/config.json",
       model: opencodeModel,
+      instructions: [instructionsPath],
+      permission: {
+        external_directory: "deny",
+        read: {
+          "*": "allow",
+          "/": "deny",
+          "/..": "deny",
+          "/../**": "deny",
+        },
+        bash: {
+          "*": "allow",
+          "cd /": "deny",
+          "cd /..": "deny",
+          "cd /../..": "deny",
+          "cd ..": "allow",
+        },
+      },
       provider: {
         [provider]: {
           models: {

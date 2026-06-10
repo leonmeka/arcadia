@@ -20,7 +20,7 @@ Created:
 
 Next:
 
-- Run \`ask "your first task"\`
+- Type naturally — prompts go to the agent, shell commands run normally
 EOF
 fi
 

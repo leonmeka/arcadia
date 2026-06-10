@@ -6,14 +6,17 @@ import { promisify } from "node:util";
 import yaml from "js-yaml";
 import type { Template, TemplateIndexEntry } from "@arcadia/types";
 import { TEMPLATES_DIR } from "@arcadia/templates";
+import { parseAgentIdentity } from "./identity.js";
 
 const execFileAsync = promisify(execFile);
 
 function parseTemplate(raw: string, source: string): Template {
-  const data = yaml.load(raw) as Partial<Template>;
+  const data = yaml.load(raw) as Partial<Template> & { identity?: unknown };
+  const name = data.name || "unnamed";
   return {
-    name: data.name || "unnamed",
+    name,
     source,
+    identity: parseAgentIdentity(data.identity, name),
     defaults: data.defaults || {},
     skills: data.skills || [],
     packages: data.packages || [],
@@ -122,6 +125,16 @@ export async function listMatchingTemplates(
       source: "local:default",
     },
   ];
+}
+
+export async function loadTemplateBySource(source: string): Promise<Template> {
+  if (source.startsWith("local:")) {
+    const rel = source.replace("local:", "");
+    const path = join(TEMPLATES_DIR, rel, "template.yaml");
+    const raw = await readFile(path, "utf8");
+    return parseTemplate(raw, source);
+  }
+  return fetchGitHubTemplate(source);
 }
 
 export async function resolveTemplate(

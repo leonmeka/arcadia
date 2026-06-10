@@ -3,9 +3,22 @@ export interface GlobalConfig {
   openrouterBaseUrl?: string;
 }
 
+export interface FleetPeer {
+  name: string;
+  identityName: string;
+}
+
+export interface AgentIdentity {
+  name: string;
+  mood: string;
+  properties: string[];
+}
+
 export interface AgentConfig {
   name: string;
   template: string;
+  templateName: string;
+  identity?: AgentIdentity;
   image: string;
   model: string;
   createdAt: string;
@@ -25,6 +38,7 @@ export interface TemplateSecrets {
 export interface Template {
   name: string;
   source: string;
+  identity?: AgentIdentity;
   defaults: TemplateDefaults;
   skills: string[];
   packages: string[];

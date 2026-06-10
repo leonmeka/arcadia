@@ -4,12 +4,14 @@ import {
   agentDir,
   agentExists,
   agentHome,
+  agentWorkspace,
   containerName,
   ensureDocker,
   getContainerState,
   removeContainer,
   startContainer,
   stopContainer,
+  syncAgentScripts,
 } from "@arcadia/core";
 
 export async function enterCommand(name: string): Promise<void> {
@@ -30,18 +32,21 @@ export async function enterCommand(name: string): Promise<void> {
     await startContainer(name);
   }
 
+  await syncAgentScripts(name);
+
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     throw new Error("arcadia enter requires an interactive terminal.");
   }
 
   const home = agentHome(name);
+  const workspace = agentWorkspace(name);
   const result = spawnSync(
     "docker",
     [
       "exec",
       "-it",
       "-w",
-      "/workspace",
+      workspace,
       "-u",
       name,
       "-e",
@@ -49,7 +54,7 @@ export async function enterCommand(name: string): Promise<void> {
       "-e",
       `USER=${name}`,
       containerName(name),
-      "/bin/bash",
+      "/usr/local/bin/arcadia-shell",
     ],
     { stdio: "inherit", env: process.env }
   );

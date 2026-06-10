@@ -3,6 +3,7 @@ import {
   getContainerState,
   listAgentNames,
   readAgentConfig,
+  resolveAgentIdentity,
 } from "@arcadia/core";
 
 function formatState(state: ContainerState): string {
@@ -42,13 +43,35 @@ export async function lsCommand(): Promise<void> {
 export async function inspectCommand(name: string): Promise<void> {
   const config = await readAgentConfig(name);
   const state = await getContainerState(name);
+  const templateName =
+    config.templateName ??
+    config.template.replace(/^local:/, "").split("/")[0] ??
+    "default";
+  const identity =
+    config.identity ??
+    resolveAgentIdentity({
+      name: templateName,
+      source: config.template,
+      defaults: {},
+      skills: [],
+      packages: [],
+      secrets: { required: [] },
+    });
 
   console.log(`Name:      ${config.name}`);
   console.log(`State:     ${formatState(state)}`);
+  console.log(`Identity:  ${identity.name}`);
+  console.log(`Mood:      ${identity.mood}`);
   console.log(`Template:  ${config.template}`);
   console.log(`Image:     ${config.image}`);
   console.log(`Model:     ${config.model}`);
   console.log(`Created:   ${config.createdAt}`);
   console.log(`Skills:    ${config.skills.join(", ") || "(none)"}`);
   console.log(`Packages:  ${config.packages.join(", ") || "(none)"}`);
+  if (identity.properties.length > 0) {
+    console.log("Traits:");
+    for (const property of identity.properties) {
+      console.log(`  - ${property}`);
+    }
+  }
 }

@@ -13,6 +13,7 @@ import {
   readGlobalConfig,
   removeContainer,
   resolveTemplate,
+  syncFleetToAllAgents,
   writeAgentConfig,
 } from "@arcadia/core";
 import { rm } from "node:fs/promises";
@@ -58,6 +59,8 @@ export async function createCommand(
     const createSpinner = ora("Creating agent").start();
     await writeAgentConfig(name, config);
     createSpinner.succeed("Creating agent");
+
+    await syncFleetToAllAgents();
 
     ora("Starting agent").start().succeed("Starting agent");
 

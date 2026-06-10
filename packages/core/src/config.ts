@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import yaml from "js-yaml";
-import type { AgentConfig, GlobalConfig } from "@arcadia/types";
+import type { AgentConfig, FleetPeer, GlobalConfig } from "@arcadia/types";
 import {
   AGENTS_DIR,
   ARCADIA_HOME,
@@ -9,6 +9,7 @@ import {
   agentConfigPath,
   agentDir,
 } from "./paths.js";
+import { parseAgentIdentity, resolveAgentIdentity } from "./identity.js";
 
 export async function ensureArcadiaHome(): Promise<void> {
   await mkdir(ARCADIA_HOME, { recursive: true });
@@ -32,9 +33,50 @@ export async function readGlobalConfig(): Promise<GlobalConfig> {
   return yaml.load(raw) as GlobalConfig;
 }
 
+export async function listFleetPeers(selfName: string): Promise<FleetPeer[]> {
+  const names = await listAgentNames();
+  const peers: FleetPeer[] = [];
+
+  for (const name of names) {
+    if (name === selfName) continue;
+    try {
+      const config = await readAgentConfig(name);
+      const templateName =
+        config.templateName ??
+        config.template.replace(/^local:/, "").split("/")[0] ??
+        "default";
+      const identity =
+        config.identity ??
+        resolveAgentIdentity({
+          name: templateName,
+          source: config.template,
+          defaults: {},
+          skills: [],
+          packages: [],
+          secrets: { required: [] },
+        });
+      peers.push({ name, identityName: identity.name });
+    } catch {
+      peers.push({ name, identityName: name });
+    }
+  }
+
+  return peers.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export async function readAgentConfig(name: string): Promise<AgentConfig> {
   const raw = await readFile(agentConfigPath(name), "utf8");
-  return yaml.load(raw) as AgentConfig;
+  const config = yaml.load(raw) as AgentConfig & { identity?: unknown };
+  const templateName =
+    config.templateName ??
+    config.template?.replace(/^local:/, "").split("/")[0] ??
+    "default";
+
+  if (config.identity != null && typeof config.identity === "string") {
+    config.identity = parseAgentIdentity(config.identity, templateName);
+  }
+
+  return config;
 }
 
 export async function writeAgentConfig(

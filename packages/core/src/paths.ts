@@ -34,6 +34,15 @@ export function agentHome(name: string): string {
   return `/home/${name}`;
 }
 
+/** Shared project files — mounted into each agent container. */
+export function agentWorkspace(name: string): string {
+  return `${agentHome(name)}/workspace`;
+}
+
 export function agentAgentDir(name: string): string {
   return `${agentHome(name)}/.agent`;
+}
+
+export function agentAgentsMdPath(name: string): string {
+  return `${agentAgentDir(name)}/AGENTS.md`;
 }

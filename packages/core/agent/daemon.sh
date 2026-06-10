@@ -38,21 +38,37 @@ start_daemon() {
   init_state
 
   if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
-    exit 0
+    :
+  else
+    if ! command -v opencode >/dev/null 2>&1; then
+      echo "opencode is not installed" >&2
+      exit 1
+    fi
+
+    cd "${ARCADIA_WORKSPACE:-$HOME/workspace}"
+    opencode serve --port "$OPENCODE_PORT" --hostname 127.0.0.1 >/dev/null 2>&1 &
+    echo $! > "$PID_FILE"
+    log_activity "OpenCode daemon started on ${OPENCODE_ATTACH}"
   fi
 
-  if ! command -v opencode >/dev/null 2>&1; then
-    echo "opencode is not installed" >&2
-    exit 1
+  if command -v arcadia-busd >/dev/null 2>&1; then
+    arcadia-busd start
   fi
 
-  cd /workspace
-  opencode serve --port "$OPENCODE_PORT" --hostname 127.0.0.1 >/dev/null 2>&1 &
-  echo $! > "$PID_FILE"
-  log_activity "OpenCode daemon started on ${OPENCODE_ATTACH}"
+  if command -v arcadia-maild >/dev/null 2>&1; then
+    arcadia-maild start
+  fi
 }
 
 stop_daemon() {
+  if command -v arcadia-busd >/dev/null 2>&1; then
+    arcadia-busd stop
+  fi
+
+  if command -v arcadia-maild >/dev/null 2>&1; then
+    arcadia-maild stop
+  fi
+
   if [[ -f "$PID_FILE" ]]; then
     kill "$(cat "$PID_FILE")" 2>/dev/null || true
     rm -f "$PID_FILE"
