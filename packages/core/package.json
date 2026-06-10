@@ -1,0 +1,35 @@
+{
+  "name": "@arcadia/core",
+  "version": "0.1.0",
+  "description": "Business logic for Arcadia: agents, templates, Docker orchestration",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "agent"
+  ],
+  "scripts": {
+    "build": "tsc"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@arcadia/templates": "workspace:*",
+    "@arcadia/types": "workspace:*",
+    "js-yaml": "^4.1.0",
+    "keytar": "^7.9.0",
+    "prompts": "^2.4.2"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.15.21",
+    "@types/prompts": "^2.4.9",
+    "typescript": "^5.8.3"
+  }
+}

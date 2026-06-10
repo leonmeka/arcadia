@@ -1,0 +1,11 @@
+name: default
+
+defaults:
+  model: openai/gpt-4o
+
+packages:
+  - curl
+
+secrets:
+  required:
+    - OPENAI_API_KEY

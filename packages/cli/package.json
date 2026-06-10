@@ -1,0 +1,47 @@
+{
+  "name": "arcadia",
+  "version": "0.1.0",
+  "description": "A runtime for persistent AI agents",
+  "type": "module",
+  "bin": {
+    "arcadia": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "docker",
+    "cli"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leonmeka/arcadia.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/leonmeka/arcadia/issues"
+  },
+  "homepage": "https://github.com/leonmeka/arcadia#readme",
+  "dependencies": {
+    "@arcadia/core": "workspace:*",
+    "@arcadia/types": "workspace:*",
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0",
+    "ora": "^8.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
