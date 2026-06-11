@@ -12,9 +12,7 @@ import {
   syncAgentScripts,
 } from "@arcadia/core";
 
-export async function summonCommand(name: string): Promise<void> {
-  await ensureDocker();
-
+async function ensureAgentAwake(name: string): Promise<void> {
   if (!(await agentExists(name))) {
     throw new Error(`Agent not found: ${name}`);
   }
@@ -31,9 +29,20 @@ export async function summonCommand(name: string): Promise<void> {
   }
 
   await syncAgentScripts(name);
+}
+
+export async function summonCommand(name: string): Promise<void> {
+  await ensureDocker();
+  await ensureAgentAwake(name);
+  console.log(`${name} is summoned`);
+}
+
+export async function possessCommand(name: string): Promise<void> {
+  await ensureDocker();
+  await ensureAgentAwake(name);
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    throw new Error("arcadia summon requires an interactive terminal.");
+    throw new Error("arcadia possess requires an interactive terminal.");
   }
 
   const home = agentHome(name);

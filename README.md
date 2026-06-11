@@ -15,10 +15,11 @@ Requires [Docker](https://www.docker.com/) and Node.js 20+.
 ```bash
 arcadia create agent
 
-arcadia summon agent
+arcadia summon agent    # start and sync
+arcadia possess agent   # interactive shell
 ```
 
-Inside the agent machine, type naturally; shell commands and prompts are routed automatically. While the agent works, you'll see live feedback for every step, tool call, and response:
+Inside the agent (`possess`), type naturally; shell commands and prompts are routed automatically. While the agent works, you'll see live feedback for every step, tool call, and response:
 
 ```bash
 ls
@@ -40,7 +41,8 @@ Prefix with `!` to force a shell command (`!help`) or `:` to force a prompt (`: 
 | `arcadia create <name>` | Create a persistent agent |
 | `arcadia create <name> --from owner/repo/path` | Create from a Git template |
 | `arcadia list` | List agents |
-| `arcadia summon <name>` | Summon an agent |
+| `arcadia summon <name>` | Summon an agent (start and sync) |
+| `arcadia possess <name>` | Possess an agent (interactive shell) |
 | `arcadia inspect <name>` | Show agent details |
 | `arcadia rest <name>` | Put an agent to rest |
 | `arcadia kill <name>` | Kill an agent |
@@ -90,7 +92,7 @@ pnpm build           # builds all packages in dependency order
 
 pnpm dev list        # run the CLI from source
 pnpm dev create researcher
-pnpm dev summon researcher
+pnpm dev possess researcher
 ```
 
 ## License

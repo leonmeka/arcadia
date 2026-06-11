@@ -21,10 +21,18 @@ program
 
 program
   .command("summon <name>")
-  .description("Summon an agent")
+  .description("Summon an agent (start and sync, without entering)")
   .action(async (name: string) => {
     const { summonCommand } = await import("./commands/lifecycle.js");
     await summonCommand(name);
+  });
+
+program
+  .command("possess <name>")
+  .description("Possess an agent (interactive shell)")
+  .action(async (name: string) => {
+    const { possessCommand } = await import("./commands/lifecycle.js");
+    await possessCommand(name);
   });
 
 program
