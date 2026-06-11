@@ -5,6 +5,10 @@ export * from "@/secrets";
 export * from "@/docker";
 export * from "@/templates/index";
 export { buildOpencodeConfig } from "@/opencode";
-export { validateOpenRouterModel } from "@/openrouter";
+export {
+  assertOpenRouterApiKey,
+  validateOpenRouterApiKey,
+  validateOpenRouterModel,
+} from "@/openrouter";
 export * from "@/identity";
 export * from "@/agent";

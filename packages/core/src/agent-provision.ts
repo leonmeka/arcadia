@@ -18,7 +18,7 @@ import { installSkills } from "@/templates/index";
 import {
   ensureAgentSudoScript,
   memoryBootstrapScript,
-  shellQuote,
+  shellExport,
 } from "@/agent-shared";
 import { buildAgentScriptInstallScript } from "@/agent-scripts";
 
@@ -119,7 +119,7 @@ export async function createAgentContainer(
     `touch ${home}/.bashrc ${home}/.profile`,
     `: > ${envFile}`,
     ...Object.entries(profileVars).map(
-      ([key, value]) => `echo 'export ${key}=${shellQuote(value)}' >> ${envFile}`
+      ([key, value]) => `${shellExport(key, value)} >> ${envFile}`
     ),
     `echo 'export PS1="${name}:workspace\\$ "' >> ${envFile}`,
     `grep -q '.arcadia.env' ${home}/.bashrc 2>/dev/null || printf '\\n${sourceEnv}\\n' >> ${home}/.bashrc`,
@@ -140,6 +140,23 @@ export async function createAgentContainer(
     `DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ${packages.join(" ")}`,
     ensureAgentSudoScript(name),
     "npm install -g opencode-ai",
+    ...(secrets.OPENROUTER_API_KEY
+      ? [
+          `mkdir -p ${home}/.local/share/opencode`,
+          `cat > ${home}/.local/share/opencode/auth.json << 'ARCADIA_AUTH_EOF'\n${JSON.stringify(
+            {
+              openrouter: {
+                type: "api",
+                key: secrets.OPENROUTER_API_KEY,
+              },
+            },
+            null,
+            2
+          )}\nARCADIA_AUTH_EOF`,
+          `chown ${name}:${name} ${home}/.local/share/opencode/auth.json`,
+          `chmod 600 ${home}/.local/share/opencode/auth.json`,
+        ]
+      : []),
     `rm -f ${workspace}/AGENTS.md`,
     ...renderEngineFilesScript({
       name,

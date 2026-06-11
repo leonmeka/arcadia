@@ -1,7 +1,7 @@
 import type { Template } from "@arcadia/types";
 import { buildOpencodeConfig } from "@/opencode";
 import { buildAgentsMd } from "@/identity";
-import { shellQuote } from "@/agent-shared";
+import { shellExport } from "@/agent-shared";
 
 export function renderEngineFilesScript(options: {
   name: string;
@@ -49,9 +49,9 @@ export function renderArcadiaEnvScript(options: {
   }
 
   lines.push(
-    `echo 'export ARCADIA_AGENT=${shellQuote(options.name)}' >> ${options.envFile}`,
-    `echo 'export ARCADIA_TEMPLATE_NAME=${shellQuote(options.templateName)}' >> ${options.envFile}`,
-    `echo 'export ARCADIA_IDENTITY_NAME=${shellQuote(options.identityName)}' >> ${options.envFile}`,
+    `${shellExport("ARCADIA_AGENT", options.name)} >> ${options.envFile}`,
+    `${shellExport("ARCADIA_TEMPLATE_NAME", options.templateName)} >> ${options.envFile}`,
+    `${shellExport("ARCADIA_IDENTITY_NAME", options.identityName)} >> ${options.envFile}`,
     `echo 'export OPENCODE_ENABLE_EXA=1' >> ${options.envFile}`,
     `chown ${options.name}:${options.name} ${options.envFile}`
   );

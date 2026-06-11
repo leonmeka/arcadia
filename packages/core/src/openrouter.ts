@@ -32,6 +32,28 @@ async function loadModelIds(force = false): Promise<Set<string>> {
   }
 }
 
+export function assertOpenRouterApiKey(key: string): void {
+  if (!key.startsWith("sk-or-")) {
+    throw new Error(
+      "Invalid OpenRouter API key. Keys start with sk-or-. Create one at https://openrouter.ai/keys"
+    );
+  }
+}
+
+export async function validateOpenRouterApiKey(key: string): Promise<void> {
+  assertOpenRouterApiKey(key);
+
+  const response = await fetch("https://openrouter.ai/api/v1/auth/key", {
+    headers: { Authorization: `Bearer ${key}` },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      "OpenRouter rejected this API key. Check or recreate it at https://openrouter.ai/keys"
+    );
+  }
+}
+
 export async function validateOpenRouterModel(model: string): Promise<Model> {
   const modelIds = await loadModelIds();
   if (!modelIds.has(model)) {

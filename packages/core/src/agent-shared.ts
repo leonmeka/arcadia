@@ -12,6 +12,10 @@ export function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
+export function shellExport(key: string, value: string): string {
+  return `printf 'export ${key}=%q\\n' ${JSON.stringify(value)}`;
+}
+
 export async function readAgentScript(name: string): Promise<string> {
   return readFile(join(AGENT_SCRIPTS_DIR, name), "utf8");
 }
