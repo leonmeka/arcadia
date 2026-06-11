@@ -1,8 +1,3 @@
-export interface GlobalConfig {
-  defaultModel?: string;
-  openrouterBaseUrl?: string;
-}
-
 export interface AgentIdentity {
   name: string;
   mood: string;

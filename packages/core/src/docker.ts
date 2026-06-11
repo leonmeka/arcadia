@@ -1,7 +1,14 @@
 import { execFile } from "node:child_process";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import type { ContainerState } from "@arcadia/types";
-import { containerName } from "./paths.js";
+import {
+  CONTAINER_LABEL,
+  CONTAINER_PREFIX,
+  containerName,
+} from "./paths.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -54,6 +61,78 @@ export async function getContainerState(name: string): Promise<ContainerState> {
     return "stopped";
   } catch {
     return "missing";
+  }
+}
+
+export async function containerExists(name: string): Promise<boolean> {
+  return (await getContainerState(name)) !== "missing";
+}
+
+export async function listArcadiaAgentNames(): Promise<string[]> {
+  try {
+    const out = await docker([
+      "ps",
+      "-a",
+      "--filter",
+      `label=${CONTAINER_LABEL}`,
+      "--format",
+      "{{.Names}}",
+    ]);
+    if (!out) return [];
+
+    return out
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((cname) =>
+        cname.startsWith(CONTAINER_PREFIX)
+          ? cname.slice(CONTAINER_PREFIX.length)
+          : cname
+      )
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+export async function readContainerFile(
+  name: string,
+  containerPath: string
+): Promise<string> {
+  const cname = containerName(name);
+  const dir = await mkdtemp(join(tmpdir(), "arcadia-read-"));
+  const localPath = join(dir, "file");
+  try {
+    await docker(["cp", `${cname}:${containerPath}`, localPath]);
+    return await readFile(localPath, "utf8");
+  } catch (error) {
+    const err = error as { stderr?: string; message?: string };
+    throw new DockerError(
+      err.stderr?.trim() || err.message || `Failed to read ${containerPath}`
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+export async function writeContainerFile(
+  name: string,
+  containerPath: string,
+  contents: string
+): Promise<void> {
+  const cname = containerName(name);
+  const dir = await mkdtemp(join(tmpdir(), "arcadia-write-"));
+  const localPath = join(dir, "file");
+  try {
+    await writeFile(localPath, contents, "utf8");
+    await docker(["cp", localPath, `${cname}:${containerPath}`]);
+  } catch (error) {
+    const err = error as { stderr?: string; message?: string };
+    throw new DockerError(
+      err.stderr?.trim() || err.message || `Failed to write ${containerPath}`
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
   }
 }
 

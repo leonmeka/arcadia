@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+# shellcheck disable=SC1091
+. /usr/local/bin/arcadia-lib
+
 if [[ -f "${HOME}/.arcadia.env" ]]; then
   # shellcheck disable=SC1091
   . "${HOME}/.arcadia.env"
@@ -30,7 +33,7 @@ ensure_files
 
 case "${1:-}" in
   "")
-    cat "$PRIVATE_FILE"
+    arcadia_print_file "$PRIVATE_FILE"
     ;;
   shared)
     if [[ "${2:-}" == "add" ]]; then
@@ -39,7 +42,7 @@ case "${1:-}" in
       printf -- '- %s\n' "$*" >> "$SHARED_FILE"
       echo "Updated shared memory."
     else
-      cat "$SHARED_FILE"
+      arcadia_print_file "$SHARED_FILE"
     fi
     ;;
   add)

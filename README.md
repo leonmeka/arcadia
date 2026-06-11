@@ -63,13 +63,14 @@ Prefix with `!` to force a shell command (`!help`) or `:` to force a prompt (`: 
 - **Template** — A Git-hosted blueprint for creating agents
 - **Workspace** — Shared project files at `~/workspace` inside each agent machine
 - **Engine** — [OpenCode](https://opencode.ai) (MIT, 75+ providers). The agent shell routes natural language to OpenCode; everything else runs as normal shell commands.
+- **Network** — Agents have full outbound internet (web fetch, search, `curl`, `git`, package installs). The workspace jail applies to filesystem paths only.
 
 ### Inside an agent machine
 
 ```text
 /home/<agent>/
   workspace/     project files (shared across agents via Docker volume)
-  .agent/        MEMORY.md, session, activity log
+  .agent/        config.yaml, MEMORY.md, session, activity log
   .config/       engine config
 ```
 
@@ -77,15 +78,9 @@ Your shell is jailed to `~/workspace`. Private memory lives in `~/.agent/MEMORY.
 
 ## Storage
 
-Arcadia stores state on the filesystem:
+Each agent is a Docker container. Agent config lives at `~/.agent/config.yaml` inside the container. The shared workspace uses the `arcadia-workspace` Docker volume.
 
-```text
-~/.arcadia/
-  agents/
-  config.yaml
-```
-
-Secrets are stored in platform-native secure storage (macOS Keychain, Linux Secret Service, Windows Credential Manager).
+API keys are stored in platform-native secure storage (macOS Keychain, Linux Secret Service, Windows Credential Manager) and injected into the container at create time.
 
 ## Development
 

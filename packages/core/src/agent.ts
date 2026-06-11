@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import yaml from "js-yaml";
 import type { AgentConfig, CreateAgentOptions, Template } from "@arcadia/types";
 import {
   AGENT_SCRIPTS_DIR,
@@ -121,11 +122,12 @@ async function buildWorkspaceSyncScript(
     `cat > ${agentsMdPath} << 'ARCADIA_EOF'\n${agentsMd}\nARCADIA_EOF`,
     `chown ${name}:${name} ${agentsMdPath}`,
     `touch ${envFile}`,
-    `grep -vE '^export ARCADIA_(AGENT|TEMPLATE_NAME|IDENTITY_NAME)=' ${envFile} > ${envFile}.tmp || true`,
+    `grep -vE '^export (ARCADIA_(AGENT|TEMPLATE_NAME|IDENTITY_NAME)|OPENCODE_ENABLE_EXA)=' ${envFile} > ${envFile}.tmp || true`,
     `mv ${envFile}.tmp ${envFile}`,
     `echo 'export ARCADIA_AGENT=${shellQuote(name)}' >> ${envFile}`,
     `echo 'export ARCADIA_TEMPLATE_NAME=${shellQuote(template.name)}' >> ${envFile}`,
     `echo 'export ARCADIA_IDENTITY_NAME=${shellQuote(identity.name)}' >> ${envFile}`,
+    `echo 'export OPENCODE_ENABLE_EXA=1' >> ${envFile}`,
     `chown ${name}:${name} ${envFile}`,
     `mkdir -p ${home}/.config/opencode`,
     `cat > ${home}/.config/opencode/opencode.json << 'ARCADIA_OPENCODE_EOF'\n${opencodeConfig}\nARCADIA_OPENCODE_EOF`,
@@ -164,6 +166,7 @@ export async function syncFleetToAllAgents(): Promise<void> {
 }
 
 async function buildAgentScriptInstallScript(): Promise<string> {
+  const libScript = await readAgentScript("lib.sh");
   const daemonScript = await readAgentScript("daemon.sh");
   const shellScript = await readAgentScript("shell.sh");
   const promptScript = await readAgentScript("prompt.sh");
@@ -173,6 +176,7 @@ async function buildAgentScriptInstallScript(): Promise<string> {
   const memoryScript = await readAgentScript("memory.sh");
 
   return [
+    `cat > /usr/local/bin/arcadia-lib << 'ARCADIA_EOF'\n${libScript}\nARCADIA_EOF`,
     `cat > /usr/local/bin/arcadia-daemon << 'ARCADIA_EOF'\n${daemonScript}\nARCADIA_EOF`,
     `cat > /usr/local/bin/arcadia-shell << 'ARCADIA_EOF'\n${shellScript}\nARCADIA_EOF`,
     `cat > /usr/local/bin/prompt << 'ARCADIA_EOF'\n${promptScript}\nARCADIA_EOF`,
@@ -182,7 +186,7 @@ async function buildAgentScriptInstallScript(): Promise<string> {
     `cat > /usr/local/bin/memory << 'ARCADIA_EOF'\n${memoryScript}\nARCADIA_EOF`,
     "rm -f /usr/local/bin/send /usr/local/bin/inbox /usr/local/bin/arcadia-mail-deliver /usr/local/bin/arcadia-maild /usr/local/bin/bus /usr/local/bin/arcadia-busd /usr/local/bin/arcadia-bus-think /usr/local/bin/arcadia-bus-live /usr/local/bin/journal /usr/local/bin/ask",
     "chmod +x /usr/local/bin/arcadia-daemon /usr/local/bin/arcadia-shell /usr/local/bin/arcadia-stream /usr/local/bin/prompt /usr/local/bin/status /usr/local/bin/timeline /usr/local/bin/memory",
-    "bash -n /usr/local/bin/arcadia-stream",
+    "bash -n /usr/local/bin/arcadia-lib /usr/local/bin/arcadia-stream",
   ].join("\n");
 }
 
@@ -216,6 +220,8 @@ export async function createAgentContainer(
   options: CreateAgentOptions
 ): Promise<void> {
   const { name, template, model, secrets } = options;
+  const config = buildAgentConfig(name, template, model);
+  const configYaml = yaml.dump(config);
   const cname = containerName(name);
   const home = agentHome(name);
   const workspace = agentWorkspace(name);
@@ -263,6 +269,7 @@ export async function createAgentContainer(
     ARCADIA_IDENTITY_NAME: identity.name,
     ARCADIA_MODEL: model,
     OPENCODE_ATTACH: "http://127.0.0.1:4096",
+    OPENCODE_ENABLE_EXA: "1",
     ...secrets,
   };
 
@@ -301,6 +308,7 @@ ${opencodeConfig}
 ARCADIA_OPENCODE_EOF`,
     `chown -R ${name}:${name} ${home}/.config`,
     ...(template.init || []),
+    `cat > ${agentDir}/config.yaml << 'ARCADIA_CONFIG_EOF'\n${configYaml}ARCADIA_CONFIG_EOF`,
     `touch ${agentDir}/activity.log ${agentDir}/session.json`,
     `chown -R ${name}:${name} ${agentDir}`,
     `echo '${name} initialized' >> ${agentDir}/activity.log`,

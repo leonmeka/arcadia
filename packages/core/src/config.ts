@@ -1,40 +1,19 @@
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import yaml from "js-yaml";
-import type { AgentConfig, GlobalConfig } from "@arcadia/types";
-import {
-  AGENTS_DIR,
-  ARCADIA_HOME,
-  CONFIG_PATH,
-  agentConfigPath,
-  agentDir,
-} from "./paths.js";
+import type { AgentConfig } from "@arcadia/types";
+import { agentContainerConfigPath } from "./paths.js";
 import { parseAgentIdentity } from "./identity.js";
+import {
+  containerExists,
+  listArcadiaAgentNames,
+  readContainerFile,
+  writeContainerFile,
+} from "./docker.js";
 
-export async function ensureArcadiaHome(): Promise<void> {
-  await mkdir(ARCADIA_HOME, { recursive: true });
-  await mkdir(AGENTS_DIR, { recursive: true });
-
-  if (!existsSync(CONFIG_PATH)) {
-    await writeFile(
-      CONFIG_PATH,
-      yaml.dump({
-        defaultModel: "anthropic/claude-sonnet-4",
-        openrouterBaseUrl: "https://openrouter.ai/api/v1",
-      } satisfies GlobalConfig),
-      "utf8"
-    );
-  }
-}
-
-export async function readGlobalConfig(): Promise<GlobalConfig> {
-  await ensureArcadiaHome();
-  const raw = await readFile(CONFIG_PATH, "utf8");
-  return yaml.load(raw) as GlobalConfig;
-}
-
-export async function readAgentConfig(name: string): Promise<AgentConfig> {
-  const raw = await readFile(agentConfigPath(name), "utf8");
+function parseAgentConfig(raw: string): AgentConfig {
   const config = yaml.load(raw) as AgentConfig & { identity?: unknown };
   const templateName =
     config.templateName ??
@@ -48,34 +27,38 @@ export async function readAgentConfig(name: string): Promise<AgentConfig> {
   return config;
 }
 
-export async function writeAgentConfig(
-  name: string,
-  config: AgentConfig
-): Promise<void> {
-  await mkdir(agentDir(name), { recursive: true });
-  await writeFile(agentConfigPath(name), yaml.dump(config), "utf8");
+function legacyHostConfigPath(name: string): string {
+  return join(homedir(), ".arcadia", "agents", name, "config.yaml");
+}
+
+async function migrateLegacyHostConfig(name: string): Promise<void> {
+  const legacyPath = legacyHostConfigPath(name);
+  if (!existsSync(legacyPath)) return;
+
+  const raw = await readFile(legacyPath, "utf8");
+  await writeContainerFile(name, agentContainerConfigPath(name), raw);
+  await rm(join(homedir(), ".arcadia", "agents", name), {
+    recursive: true,
+    force: true,
+  });
+}
+
+export async function readAgentConfig(name: string): Promise<AgentConfig> {
+  const path = agentContainerConfigPath(name);
+  try {
+    const raw = await readContainerFile(name, path);
+    return parseAgentConfig(raw);
+  } catch {
+    await migrateLegacyHostConfig(name);
+    const raw = await readContainerFile(name, path);
+    return parseAgentConfig(raw);
+  }
 }
 
 export async function listAgentNames(): Promise<string[]> {
-  await ensureArcadiaHome();
-  if (!existsSync(AGENTS_DIR)) return [];
-
-  const entries = await readdir(AGENTS_DIR, { withFileTypes: true });
-  const names: string[] = [];
-
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    if (existsSync(agentConfigPath(entry.name))) names.push(entry.name);
-  }
-
-  return names.sort();
+  return listArcadiaAgentNames();
 }
 
 export async function agentExists(name: string): Promise<boolean> {
-  return existsSync(agentConfigPath(name));
-}
-
-export async function pruneOrphanedAgent(name: string): Promise<void> {
-  if (!(await agentExists(name))) return;
-  await rm(agentDir(name), { recursive: true, force: true });
+  return containerExists(name);
 }

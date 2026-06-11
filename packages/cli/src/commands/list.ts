@@ -3,7 +3,6 @@ import {
   agentExists,
   getContainerState,
   listAgentNames,
-  pruneOrphanedAgent,
   readAgentConfig,
   resolveAgentIdentity,
 } from "@arcadia/core";
@@ -32,10 +31,6 @@ export async function listCommand(): Promise<void> {
 
   for (const name of names) {
     const state = await getContainerState(name);
-    if (state === "missing") {
-      await pruneOrphanedAgent(name);
-      continue;
-    }
     rows.push({ name, state: formatState(state) });
   }
 
@@ -52,11 +47,6 @@ export async function inspectCommand(name: string): Promise<void> {
   }
 
   const state = await getContainerState(name);
-  if (state === "missing") {
-    await pruneOrphanedAgent(name);
-    throw new Error(`Agent not found: ${name}`);
-  }
-
   const config = await readAgentConfig(name);
   const templateName =
     config.templateName ??

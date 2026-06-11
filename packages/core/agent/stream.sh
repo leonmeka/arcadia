@@ -1,6 +1,9 @@
 #!/bin/bash
 set -uo pipefail
 
+# shellcheck disable=SC1091
+. /usr/local/bin/arcadia-lib
+
 OPENCODE_ATTACH="${OPENCODE_ATTACH:-http://127.0.0.1:4096}"
 ARCADIA_WORKSPACE="${ARCADIA_WORKSPACE:-${HOME}/workspace}"
 LOG_FILE="${ASK_LOG_FILE:-}"
@@ -157,6 +160,20 @@ print_tool_line() {
         log_activity "bash: $cmd (running)"
       fi
       update_state activity "bash: $cmd"
+      ;;
+    webfetch)
+      path="$(jq -r '.state.input.url // .state.input.URL // empty' <<< "$part")"
+      path="${path:-$title}"
+      printf '  %b%s  %s%b\n' "$DIM" "$tool" "$path" "$RST"
+      log_activity "$tool: $path"
+      update_state activity "$tool: $path"
+      ;;
+    websearch)
+      path="$(jq -r '.state.input.query // .state.input.q // empty' <<< "$part")"
+      path="${path:-$title}"
+      printf '  %b%s  %s%b\n' "$DIM" "$tool" "$path" "$RST"
+      log_activity "$tool: $path"
+      update_state activity "$tool: $path"
       ;;
     read|write|edit)
       path="$(jq -r '.state.input.filePath // .state.input.path // .state.input.file // empty' <<< "$part")"
@@ -324,6 +341,7 @@ while IFS= read -r line; do
 done
 
 stop_spinner
+arcadia_newline_before_prompt
 
 trap - INT TERM
 

@@ -19,6 +19,41 @@ export function parseOpencodeModel(model: string): {
   };
 }
 
+export function buildOpencodePermissions(): Record<string, unknown> {
+  return {
+    external_directory: {
+      "~/.agent/**": "allow",
+      "~/.agents/**": "allow",
+    },
+    read: {
+      "*": "allow",
+      "/": "deny",
+      "/..": "deny",
+      "/../**": "deny",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow",
+    },
+    edit: "allow",
+    glob: "allow",
+    grep: "allow",
+    skill: "allow",
+    todowrite: "allow",
+    task: "allow",
+    bash: {
+      "*": "allow",
+      "cd /": "deny",
+      "cd /..": "deny",
+      "cd /../..": "deny",
+      "cd ..": "allow",
+    },
+    webfetch: "allow",
+    websearch: "allow",
+    question: "allow",
+    doom_loop: "allow",
+  };
+}
+
 export function buildOpencodeConfig(
   model: string,
   instructionPaths: string | string[]
@@ -32,24 +67,7 @@ export function buildOpencodeConfig(
       $schema: "https://opencode.ai/config.json",
       model: opencodeModel,
       instructions,
-      permission: {
-        external_directory: {
-          "~/.agent/**": "allow",
-        },
-        read: {
-          "*": "allow",
-          "/": "deny",
-          "/..": "deny",
-          "/../**": "deny",
-        },
-        bash: {
-          "*": "allow",
-          "cd /": "deny",
-          "cd /..": "deny",
-          "cd /../..": "deny",
-          "cd ..": "allow",
-        },
-      },
+      permission: buildOpencodePermissions(),
       provider: {
         [provider]: {
           models: {

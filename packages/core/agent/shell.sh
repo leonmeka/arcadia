@@ -1,6 +1,9 @@
 #!/bin/bash
 set -uo pipefail
 
+# shellcheck disable=SC1091
+. /usr/local/bin/arcadia-lib
+
 if [[ -f "${HOME}/.arcadia.env" ]]; then
   # shellcheck disable=SC1091
   . "${HOME}/.arcadia.env"
@@ -126,7 +129,7 @@ arcadia_is_prompt() {
 
 arcadia_after_prompt() {
   arcadia_ensure_cwd "prompt" || true
-  printf '\n'
+  arcadia_newline_before_prompt
 }
 
 arcadia_run_command() {
@@ -138,6 +141,7 @@ arcadia_run_command() {
   # shellcheck disable=SC2086
   eval "$line"
   arcadia_ensure_cwd "$line" || true
+  arcadia_newline_before_prompt
 }
 
 mkdir -p "$ARCADIA_ROOT"

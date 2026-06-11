@@ -6,7 +6,6 @@ import {
   containerName,
   ensureDocker,
   getContainerState,
-  pruneOrphanedAgent,
   removeContainer,
   startContainer,
   stopContainer,
@@ -22,7 +21,6 @@ export async function summonCommand(name: string): Promise<void> {
 
   const state = await getContainerState(name);
   if (state === "missing") {
-    await pruneOrphanedAgent(name);
     throw new Error(
       `Agent not found: ${name}. Create it again with: arcadia create ${name}`
     );
@@ -85,6 +83,5 @@ export async function killCommand(name: string): Promise<void> {
   }
 
   await removeContainer(name);
-  await pruneOrphanedAgent(name);
   console.log(`Killed ${name}`);
 }
