@@ -5,5 +5,4 @@ export * from "./docker.js";
 export * from "./templates.js";
 export * from "./opencode.js";
 export * from "./identity.js";
-export * from "./bus.js";
 export * from "./agent.js";

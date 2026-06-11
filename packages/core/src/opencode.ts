@@ -1,9 +1,7 @@
-/** Normalize a template model into OpenCode's provider/model format. */
 export function toOpencodeModel(model: string): string {
   return model.includes("/") ? model : `openrouter/${model}`;
 }
 
-/** Split "openai/gpt-4o" into provider + model id for OpenCode config. */
 export function parseOpencodeModel(model: string): {
   opencodeModel: string;
   provider: string;

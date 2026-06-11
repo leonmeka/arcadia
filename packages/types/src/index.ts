@@ -3,11 +3,6 @@ export interface GlobalConfig {
   openrouterBaseUrl?: string;
 }
 
-export interface FleetPeer {
-  name: string;
-  identityName: string;
-}
-
 export interface AgentIdentity {
   name: string;
   mood: string;

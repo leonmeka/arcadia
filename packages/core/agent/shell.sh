@@ -78,10 +78,8 @@ arcadia_is_prompt() {
   fi
 
   case "$trimmed" in
-    status|journal|timeline|inbox|send|bus) return 1 ;;
+    status|journal|timeline) return 1 ;;
     journal\ *) return 1 ;;
-    send\ *) return 1 ;;
-    bus\ *) return 1 ;;
   esac
 
   if [[ "$trimmed" =~ [\|\&\;\$\`\>\<\(] ]]; then
@@ -142,120 +140,6 @@ arcadia_run_command() {
   arcadia_ensure_cwd "$line" || true
 }
 
-arcadia_fleet_file() {
-  printf '%s/.arcadia/fleet.json' "$ARCADIA_ROOT"
-}
-
-arcadia_extract_quoted() {
-  local line="$1"
-  if [[ "$line" =~ \"([^\"]*)\" ]]; then
-    printf '%s' "${BASH_REMATCH[1]}"
-  fi
-}
-
-arcadia_resolve_agent() {
-  local name="$1"
-  local fleet_file agent
-  name="$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')"
-  fleet_file="$(arcadia_fleet_file)"
-  [[ -f "$fleet_file" ]] || return 1
-
-  if jq -e --arg a "$name" '.agents | index($a)' "$fleet_file" >/dev/null 2>&1; then
-    printf '%s' "$name"
-    return 0
-  fi
-
-  while IFS= read -r agent; do
-    [[ -n "$agent" ]] || continue
-    if [[ "$agent" == "$name"* || "$name" == "$agent"* ]]; then
-      printf '%s' "$agent"
-      return 0
-    fi
-  done < <(jq -r '.agents[]' "$fleet_file" 2>/dev/null)
-
-  return 1
-}
-
-arcadia_find_agent_in_text() {
-  local lower="$1"
-  local self="${ARCADIA_AGENT:-${USER:-agent}}"
-  local fleet_file agent
-  fleet_file="$(arcadia_fleet_file)"
-  [[ -f "$fleet_file" ]] || return 1
-
-  while IFS= read -r agent; do
-    [[ -n "$agent" && "$agent" != "$self" ]] || continue
-    if [[ "$lower" == *" $agent "* || "$lower" == *" $agent" || "$lower" == "$agent "* || "$lower" == *"to $agent"* || "$lower" == *"to $agent,"* ]]; then
-      printf '%s' "$agent"
-      return 0
-    fi
-  done < <(jq -r '.agents[]' "$fleet_file" 2>/dev/null)
-
-  if [[ "$lower" =~ to[[:space:]]+([a-z][a-z0-9-]*) ]]; then
-    arcadia_resolve_agent "${BASH_REMATCH[1]}"
-    return $?
-  fi
-
-  return 1
-}
-
-# Route natural-language fleet messaging to bus without invoking the AI.
-arcadia_try_bus_route() {
-  local line="$1"
-  local trimmed lower msg agent self="${ARCADIA_AGENT:-${USER:-agent}}"
-
-  trimmed="${line#"${line%%[![:space:]]*}"}"
-  trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
-  lower="$(printf '%s' "$trimmed" | tr '[:upper:]' '[:lower:]')"
-  msg="$(arcadia_extract_quoted "$trimmed")"
-
-  if [[ ! -f "$(arcadia_fleet_file)" ]] || ! command -v bus >/dev/null 2>&1; then
-    return 1
-  fi
-
-  if [[ "$lower" == *"fleet channel"* || "$lower" == *"fleet bus"* || "$lower" == *"broadcast to fleet"* || "$lower" == *"message the fleet"* || "$lower" == *"message in the fleet"* ]]; then
-    if [[ -n "$msg" ]]; then
-      bus fleet "$msg"
-      return 0
-    fi
-    echo "arcadia: what should the fleet message say? (example: bus fleet \"hello everyone\")" >&2
-    return 0
-  fi
-
-  if [[ "$lower" =~ (^|[[:space:]])(message|tell|write|send|ask|notify|ping)([[:space:]]|$) ]]; then
-    agent="$(arcadia_find_agent_in_text " $lower ")"
-
-    if [[ -n "$agent" && -n "$msg" ]]; then
-      bus to "$agent" "$msg"
-      return 0
-    fi
-
-    if [[ -n "$agent" && -z "$msg" ]]; then
-      echo "arcadia: what should I send to ${agent}? (example: bus to ${agent} \"hello\")" >&2
-      return 0
-    fi
-
-    if [[ -z "$agent" && -n "$msg" && "$lower" == *"fleet"* ]]; then
-      bus fleet "$msg"
-      return 0
-    fi
-  fi
-
-  if [[ -n "$msg" ]] && [[ "$lower" =~ (^|[[:space:]])(write|say)([[:space:]]|$) ]]; then
-    agent="$(arcadia_find_agent_in_text " $lower ")"
-    if [[ -n "$agent" ]]; then
-      bus to "$agent" "$msg"
-      return 0
-    fi
-    if [[ "$lower" == *"fleet"* ]]; then
-      bus fleet "$msg"
-      return 0
-    fi
-  fi
-
-  return 1
-}
-
 mkdir -p "$ARCADIA_ROOT"
 ARCADIA_ROOT_RESOLVED="$(arcadia_resolve_path "$ARCADIA_ROOT")"
 builtin cd "$ARCADIA_ROOT"
@@ -298,7 +182,6 @@ arcadia_kill_active() {
     kill -TERM -"$pgid" 2>/dev/null || true
   fi
 
-  # Orphaned tool processes from a killed prompt
   pkill -TERM -u "${USER:-$(id -un)}" -f 'opencode run' 2>/dev/null || true
   pkill -TERM -u "${USER:-$(id -un)}" -f 'arcadia-stream' 2>/dev/null || true
 
@@ -357,92 +240,13 @@ arcadia_is_host_command() {
   return 1
 }
 
-# Marks bus sends as shell-originated so `bus` stays quiet (the watch stream
-# echoes them) while headless callers still get confirmations.
-export ARCADIA_SHELL=1
-
-AGENT_DIR="${ARCADIA_HOME:-$HOME}/.agent"
-PENDING_MAIL="${AGENT_DIR}/mail-pending"
-ARCADIA_STATE_FILE="${AGENT_DIR}/state.json"
-BUSD_PID_FILE="${AGENT_DIR}/busd.pid"
-FLEET_TALK_SHOWN=0
-ARCADIA_WATCH_PID=""
-
-arcadia_busd_alive() {
-  [[ -f "$BUSD_PID_FILE" ]] && kill -0 "$(cat "$BUSD_PID_FILE")" 2>/dev/null
-}
-
-arcadia_agent_talking() {
-  [[ -f "$ARCADIA_STATE_FILE" ]] || return 1
-  local status mode
-  status="$(jq -r '.status // "idle"' "$ARCADIA_STATE_FILE" 2>/dev/null)" || return 1
-  mode="$(jq -r '.mode // empty' "$ARCADIA_STATE_FILE" 2>/dev/null)" || mode=""
-
-  if [[ "$status" == "talking" ]]; then
-    if ! arcadia_busd_alive; then
-      jq -n '{status: "idle"}' > "$ARCADIA_STATE_FILE" 2>/dev/null || true
-      return 1
-    fi
-    return 0
-  fi
-  [[ "$status" == "working" && "$mode" == "fleet" ]]
-}
-
-arcadia_block_if_talking() {
-  if arcadia_agent_talking; then
-    printf 'arcadia: busy on the fleet channel — wait for the conversation to finish\n' >&2
-    return 0
-  fi
-  return 1
-}
-
-arcadia_check_mail() {
-  [[ -f "$PENDING_MAIL" ]] || return 0
-  rm -f "$PENDING_MAIL"
-  if command -v inbox >/dev/null 2>&1; then
-    printf '\n--- incoming message ---\n' >&2
-    inbox
-    printf '\n' >&2
-  fi
-}
-
-arcadia_shell_cleanup() {
-  if [[ -n "$ARCADIA_WATCH_PID" ]]; then
-    pkill -P "$ARCADIA_WATCH_PID" 2>/dev/null || true
-    kill "$ARCADIA_WATCH_PID" 2>/dev/null || true
-  fi
-}
-
-# Fleet traffic streams live into the terminal while the user is at the prompt.
-if command -v bus >/dev/null 2>&1; then
-  bus watch >&2 &
-  ARCADIA_WATCH_PID=$!
-fi
-
-trap arcadia_shell_cleanup EXIT
 trap arcadia_handle_int INT
 
 while true; do
-  arcadia_check_mail
-
-  if arcadia_agent_talking; then
-    if [[ "$FLEET_TALK_SHOWN" -eq 0 ]]; then
-      printf '\n--- fleet (talking) ---\n' >&2
-      FLEET_TALK_SHOWN=1
-    fi
-    sleep 0.5
-    continue
-  fi
-  if [[ "$FLEET_TALK_SHOWN" -eq 1 ]]; then
-    FLEET_TALK_SHOWN=0
-    printf '\n' >&2
-  fi
-
   line=""
   read -er -p "${PS1:-arcadia\$ }" line
   rc=$?
   if (( rc != 0 )); then
-    # >128 means interrupted by a signal (Ctrl+C); plain failure is EOF.
     if (( rc > 128 )); then
       continue
     fi
@@ -465,12 +269,7 @@ while true; do
     continue
   fi
 
-  if arcadia_try_bus_route "$line"; then
-    continue
-  fi
-
   if [[ "$line" == :* ]]; then
-    arcadia_block_if_talking && continue
     line="${line:1}"
     line="${line#"${line%%[![:space:]]*}"}"
     arcadia_invoke prompt "$line"
@@ -479,7 +278,6 @@ while true; do
   fi
 
   if arcadia_is_prompt "$line"; then
-    arcadia_block_if_talking && continue
     arcadia_invoke prompt "$line"
     arcadia_after_prompt
   else

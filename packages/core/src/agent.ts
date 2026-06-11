@@ -13,10 +13,9 @@ import {
   containerName,
 } from "./paths.js";
 import { docker, ensureWorkspaceVolume, getContainerState, startContainer } from "./docker.js";
-import { ARCADIA_NETWORK, BUS_URL, connectAgentToNetwork, ensureFleetBus } from "./bus.js";
 import { buildOpencodeConfig } from "./opencode.js";
 import { buildAgentsMd, resolveAgentIdentity } from "./identity.js";
-import { listFleetPeers, listAgentNames, readAgentConfig } from "./config.js";
+import { listAgentNames, readAgentConfig } from "./config.js";
 import { installSkills, loadTemplateBySource } from "./templates.js";
 
 function shellQuote(value: string): string {
@@ -54,19 +53,9 @@ async function buildWorkspaceSyncScript(
   const agentDir = agentAgentDir(name);
   const agentsMdPath = agentAgentsMdPath(name);
   const envFile = `${home}/.arcadia.env`;
-  const peers = await listFleetPeers(name);
-  const allAgents = await listAgentNames();
-  const fleetJson = JSON.stringify(
-    { agents: allAgents, updatedAt: new Date().toISOString() },
-    null,
-    2
-  );
-  const agentsMd = buildAgentsMd(name, template, peers);
+  const agentsMd = buildAgentsMd(name, template);
   const identity = resolveAgentIdentity(template);
   const opencodeConfig = buildOpencodeConfig(config.model, agentsMdPath);
-  const mailboxSetup = allAgents
-    .map((agent) => `mkdir -p "$WS/.arcadia/mailbox/${agent}/inbox"`)
-    .join("\n");
 
   return [
     `WS=${shellQuote(workspace)}`,
@@ -77,25 +66,21 @@ async function buildWorkspaceSyncScript(
     `  ln -s /workspace "$WS"`,
     `fi`,
     `mkdir -p "$WS" ${agentDir} "$WS/.arcadia"`,
-    mailboxSetup,
     `chown -R ${name}:${name} "$WS/.arcadia"`,
-    `cat > "$WS/.arcadia/fleet.json" << 'ARCADIA_FLEET_EOF'\n${fleetJson}\nARCADIA_FLEET_EOF`,
-    `chown ${name}:${name} "$WS/.arcadia/fleet.json"`,
     `rm -f ${workspace}/AGENTS.md`,
     `cat > ${agentsMdPath} << 'ARCADIA_EOF'\n${agentsMd}\nARCADIA_EOF`,
     `chown ${name}:${name} ${agentsMdPath}`,
     `touch ${envFile}`,
-    `grep -vE '^export ARCADIA_(AGENT|TEMPLATE_NAME|IDENTITY_NAME|BUS_URL)=' ${envFile} > ${envFile}.tmp || true`,
+    `grep -vE '^export ARCADIA_(AGENT|TEMPLATE_NAME|IDENTITY_NAME)=' ${envFile} > ${envFile}.tmp || true`,
     `mv ${envFile}.tmp ${envFile}`,
     `echo 'export ARCADIA_AGENT=${shellQuote(name)}' >> ${envFile}`,
     `echo 'export ARCADIA_TEMPLATE_NAME=${shellQuote(template.name)}' >> ${envFile}`,
     `echo 'export ARCADIA_IDENTITY_NAME=${shellQuote(identity.name)}' >> ${envFile}`,
-    `echo 'export ARCADIA_BUS_URL=${shellQuote(BUS_URL)}' >> ${envFile}`,
     `chown ${name}:${name} ${envFile}`,
     `mkdir -p ${home}/.config/opencode`,
     `cat > ${home}/.config/opencode/opencode.json << 'ARCADIA_OPENCODE_EOF'\n${opencodeConfig}\nARCADIA_OPENCODE_EOF`,
     `chown -R ${name}:${name} ${home}/.config`,
-    `su - ${name} -c 'arcadia-busd stop >/dev/null 2>&1 || true; arcadia-maild stop >/dev/null 2>&1 || true; arcadia-daemon stop >/dev/null 2>&1 || true; arcadia-daemon start'`,
+    `su - ${name} -c 'arcadia-daemon stop >/dev/null 2>&1 || true; arcadia-daemon start'`,
   ].join("\n");
 }
 
@@ -111,33 +96,7 @@ export async function syncAgentWorkspace(name: string): Promise<void> {
   await docker(["exec", containerName(name), "bash", "-lc", syncScript]);
 }
 
-/** Ensure the fleet bus and every agent container share arcadia-net. */
-export async function ensureFleetNetwork(): Promise<void> {
-  await ensureFleetBus();
-  const names = await listAgentNames();
-
-  for (const agentName of names) {
-    const state = await getContainerState(agentName);
-    if (state === "missing") continue;
-    try {
-      await connectAgentToNetwork(containerName(agentName), agentName);
-    } catch {
-      // Skip agents that fail to join the network
-    }
-  }
-}
-
-/** Join a single agent (and the bus) to arcadia-net. */
-export async function ensureAgentNetwork(name: string): Promise<void> {
-  const state = await getContainerState(name);
-  if (state === "missing") return;
-  await ensureFleetBus();
-  await connectAgentToNetwork(containerName(name), name);
-}
-
-/** Refresh fleet mailboxes, scripts, and AGENTS.md across all agents. */
 export async function syncFleetToAllAgents(): Promise<void> {
-  await ensureFleetNetwork();
   const names = await listAgentNames();
 
   for (const agentName of names) {
@@ -163,12 +122,6 @@ async function buildAgentScriptInstallScript(): Promise<string> {
   const statusScript = await readAgentScript("status.sh");
   const journalScript = await readAgentScript("journal.sh");
   const timelineScript = await readAgentScript("timeline.sh");
-  const sendScript = await readAgentScript("send.sh");
-  const inboxScript = await readAgentScript("inbox.sh");
-  const mailDeliverScript = await readAgentScript("mail-deliver.sh");
-  const maildScript = await readAgentScript("maild.sh");
-  const busScript = await readAgentScript("bus.sh");
-  const busdScript = await readAgentScript("busd.sh");
 
   return [
     `cat > /usr/local/bin/arcadia-daemon << 'ARCADIA_EOF'\n${daemonScript}\nARCADIA_EOF`,
@@ -179,21 +132,13 @@ async function buildAgentScriptInstallScript(): Promise<string> {
     `cat > /usr/local/bin/status << 'ARCADIA_EOF'\n${statusScript}\nARCADIA_EOF`,
     `cat > /usr/local/bin/journal << 'ARCADIA_EOF'\n${journalScript}\nARCADIA_EOF`,
     `cat > /usr/local/bin/timeline << 'ARCADIA_EOF'\n${timelineScript}\nARCADIA_EOF`,
-    `cat > /usr/local/bin/send << 'ARCADIA_EOF'\n${sendScript}\nARCADIA_EOF`,
-    `cat > /usr/local/bin/inbox << 'ARCADIA_EOF'\n${inboxScript}\nARCADIA_EOF`,
-    `cat > /usr/local/bin/arcadia-mail-deliver << 'ARCADIA_EOF'\n${mailDeliverScript}\nARCADIA_EOF`,
-    `cat > /usr/local/bin/arcadia-maild << 'ARCADIA_EOF'\n${maildScript}\nARCADIA_EOF`,
-    `cat > /usr/local/bin/bus << 'ARCADIA_EOF'\n${busScript}\nARCADIA_EOF`,
-    `cat > /usr/local/bin/arcadia-busd << 'ARCADIA_EOF'\n${busdScript}\nARCADIA_EOF`,
-    "rm -f /usr/local/bin/arcadia-bus-think /usr/local/bin/arcadia-bus-live",
-    "chmod +x /usr/local/bin/arcadia-daemon /usr/local/bin/arcadia-shell /usr/local/bin/arcadia-stream /usr/local/bin/prompt /usr/local/bin/ask /usr/local/bin/status /usr/local/bin/journal /usr/local/bin/timeline /usr/local/bin/send /usr/local/bin/inbox /usr/local/bin/arcadia-mail-deliver /usr/local/bin/arcadia-maild /usr/local/bin/bus /usr/local/bin/arcadia-busd",
+    "rm -f /usr/local/bin/send /usr/local/bin/inbox /usr/local/bin/arcadia-mail-deliver /usr/local/bin/arcadia-maild /usr/local/bin/bus /usr/local/bin/arcadia-busd /usr/local/bin/arcadia-bus-think /usr/local/bin/arcadia-bus-live",
+    "chmod +x /usr/local/bin/arcadia-daemon /usr/local/bin/arcadia-shell /usr/local/bin/arcadia-stream /usr/local/bin/prompt /usr/local/bin/ask /usr/local/bin/status /usr/local/bin/journal /usr/local/bin/timeline",
     "bash -n /usr/local/bin/arcadia-stream",
   ].join("\n");
 }
 
 export async function syncAgentScripts(name: string): Promise<void> {
-  await ensureAgentNetwork(name);
-
   const installScript = [
     "command -v jq >/dev/null || (apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq jq)",
     await buildAgentScriptInstallScript(),
@@ -205,7 +150,6 @@ export async function syncAgentScripts(name: string): Promise<void> {
     "-lc",
     installScript,
   ]);
-  // Restart the fleet worker on the new script and drop legacy bus state.
   await docker([
     "exec",
     "-u",
@@ -215,7 +159,7 @@ export async function syncAgentScripts(name: string): Promise<void> {
     containerName(name),
     "bash",
     "-lc",
-    "arcadia-busd stop >/dev/null 2>&1 || true; rm -rf ~/.agent/bus ~/.agent/bus-pending ~/.agent/bus-think.lock ~/.agent/shell.pid ~/.agent/shell.tty; arcadia-busd start",
+    "arcadia-busd stop >/dev/null 2>&1 || true; arcadia-maild stop >/dev/null 2>&1 || true; rm -rf ~/.agent/bus",
   ]);
   await syncAgentWorkspace(name);
 }
@@ -230,7 +174,6 @@ export async function createAgentContainer(
   const agentDir = agentAgentDir(name);
 
   await ensureWorkspaceVolume();
-  await ensureFleetBus();
 
   const envVars = [
     `ARCADIA_AGENT=${name}`,
@@ -254,9 +197,7 @@ export async function createAgentContainer(
   ];
 
   const identity = resolveAgentIdentity(template);
-  const peers = await listFleetPeers(name);
-  const fleetAgents = [...new Set([name, ...(await listAgentNames())])].sort();
-  const agentsMd = buildAgentsMd(name, template, peers);
+  const agentsMd = buildAgentsMd(name, template);
   const agentsMdPath = agentAgentsMdPath(name);
 
   const profileVars: Record<string, string> = {
@@ -266,14 +207,10 @@ export async function createAgentContainer(
     ARCADIA_TEMPLATE_NAME: template.name,
     ARCADIA_IDENTITY_NAME: identity.name,
     ARCADIA_MODEL: model,
-    ARCADIA_BUS_URL: BUS_URL,
     OPENCODE_ATTACH: "http://127.0.0.1:4096",
     ...secrets,
   };
 
-  // Env exports live in a dedicated file that sources nothing else.
-  // Never make .bashrc source .profile: Ubuntu's .profile sources .bashrc,
-  // so that creates an infinite loop that segfaults every interactive shell.
   const envFile = `${home}/.arcadia.env`;
   const sourceEnv = `[ -f ~/.arcadia.env ] && . ~/.arcadia.env`;
   const profileCommands = [
@@ -289,22 +226,11 @@ export async function createAgentContainer(
     `chmod 600 ${envFile}`,
   ];
 
-  const fleetJson = JSON.stringify(
-    { agents: fleetAgents, updatedAt: new Date().toISOString() },
-    null,
-    2
-  );
-  const mailboxSetup = fleetAgents
-    .map((agent) => `mkdir -p ${workspace}/.arcadia/mailbox/${agent}/inbox`)
-    .join("\n");
-
   const setupScript = [
     "#!/bin/bash",
     "set -euo pipefail",
     `id -u ${name} &>/dev/null || useradd -m -s /bin/bash ${name}`,
     `mkdir -p ${agentDir} ${workspace} ${workspace}/.arcadia ${home}/.agents/skills`,
-    mailboxSetup,
-    `cat > ${workspace}/.arcadia/fleet.json << 'ARCADIA_FLEET_EOF'\n${fleetJson}\nARCADIA_FLEET_EOF`,
     `chown -R ${name}:${name} ${home} ${workspace}/.arcadia`,
     ...profileCommands,
     "apt-get update -qq",
@@ -341,10 +267,6 @@ ARCADIA_OPENCODE_EOF`,
     cname,
     "--label",
     `${CONTAINER_LABEL}=${name}`,
-    "--network",
-    ARCADIA_NETWORK,
-    "--network-alias",
-    name,
     "--volume",
     `${WORKSPACE_VOLUME}:${workspace}`,
     "--workdir",

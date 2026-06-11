@@ -5,7 +5,6 @@ import {
   agentWorkspace,
   containerName,
   ensureDocker,
-  ensureFleetNetwork,
   getContainerState,
   pruneOrphanedAgent,
   removeContainer,
@@ -33,7 +32,6 @@ export async function enterCommand(name: string): Promise<void> {
     await startContainer(name);
   }
 
-  await ensureFleetNetwork();
   await syncAgentScripts(name);
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {

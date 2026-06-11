@@ -13,8 +13,7 @@
   },
   "files": [
     "dist",
-    "agent",
-    "bus"
+    "agent"
   ],
   "scripts": {
     "build": "tsc"

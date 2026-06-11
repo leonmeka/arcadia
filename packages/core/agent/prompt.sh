@@ -58,21 +58,11 @@ export ASK_DATE_HEADER="$DATE_HEADER"
 export ASK_LOG_FILE="$LOG_FILE"
 export ASK_REPLY_FILE="$REPLY_FILE"
 export OPENCODE_ATTACH
-# Children (opencode bash) should get send confirmations from `bus`.
-unset ARCADIA_SHELL 2>/dev/null || true
-
-MODE="${ASK_MODE:-}"
 
 jq -n \
   --arg task "$PROMPT" \
   --arg started "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  --arg mode "$MODE" \
-  '{
-    status: "working",
-    lastTask: $task,
-    activity: "starting",
-    startedAt: $started
-  } + (if $mode != "" then {mode: $mode} else {} end)' \
+  '{status: "working", lastTask: $task, activity: "starting", startedAt: $started}' \
   > "$STATE_FILE"
 
 cd "${ARCADIA_WORKSPACE:-$HOME/workspace}"

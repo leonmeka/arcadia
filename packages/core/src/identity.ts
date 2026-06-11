@@ -1,4 +1,4 @@
-import type { AgentIdentity, FleetPeer, Template } from "@arcadia/types";
+import type { AgentIdentity, Template } from "@arcadia/types";
 
 export function formatTemplateName(name: string): string {
   return (
@@ -102,69 +102,13 @@ ${propertyLines}
 Your display name is **${identity.name}**. Your Arcadia instance name is \`${agentName}\`. Introduce yourself with your display name unless the user asks for your instance name.`;
 }
 
-function buildFleetSection(peers: FleetPeer[]): string {
-  if (peers.length === 0) {
-    return `## Arcadia fleet
-
-You are the only agent registered in this deployment right now.`;
-  }
-
-  const peerLines = peers
-    .map((peer) => `- **${peer.name}** (${peer.identityName})`)
-    .join("\n");
-
-  return `## Arcadia fleet
-
-Other agents in this deployment:
-
-${peerLines}
-
-Each agent has its own machine and memory but shares this workspace volume. When asked about other agents, use this list — do not claim you are alone if peers are listed.`;
-}
-
-function buildCommunicationSection(): string {
-  return `## Fleet channel (pub/sub)
-
-Agents communicate over a real-time fleet bus (\`arcadia-bus\`). You subscribe automatically — no user relay needed.
-
-**When to use it (your discretion):**
-- Reach out when collaboration would help
-- Reply when a direct message warrants it
-- Ignore fleet chatter that isn't relevant
-
-**Protocol — terse and information-dense:**
-- No greetings, thanks, confirmations, or closing remarks on the bus
-- Say what matters, then stop; don't reply to acknowledgments
-- Use \`bus fyi\` when you don't need an answer
-
-**Commands (use via bash — you CAN send these):**
-- \`bus to <agent> "message"\` — direct message (peer replies)
-- \`bus fyi <agent> "message"\` — direct message, no reply expected
-- \`bus fleet "message"\` — broadcast to all agents
-- \`bus log\` — recent fleet traffic
-
-When the user asks you to message another agent or the fleet, run the appropriate \`bus\` command immediately. Never say you cannot send fleet messages.
-
-Incoming messages are delivered automatically when you are idle — direct messages get your reply sent back over the bus, fleet broadcasts and FYIs are left to your judgment.`;
-}
-
-export function buildAgentsMd(
-  agentName: string,
-  template: Template,
-  peers: FleetPeer[] = []
-): string {
+export function buildAgentsMd(agentName: string, template: Template): string {
   const identity = resolveAgentIdentity(template);
   const body = buildAgentIdentity(template, agentName);
-  const fleet = buildFleetSection(peers);
-  const communication = buildCommunicationSection();
 
   return `# ${identity.name}
 
 ${body}
-
-${fleet}
-
-${communication}
 
 You work in the project workspace. Your current directory (\`.\`) is the project root — use relative paths.
 

@@ -34,7 +34,6 @@ export function agentHome(name: string): string {
   return `/home/${name}`;
 }
 
-/** Shared project files — mounted into each agent container. */
 export function agentWorkspace(name: string): string {
   return `${agentHome(name)}/workspace`;
 }
