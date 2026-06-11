@@ -12,12 +12,6 @@ fi
 ARCADIA_ROOT="${ARCADIA_WORKSPACE:-$HOME/workspace}"
 LOG_FILE="${ARCADIA_HOME:-$HOME}/.agent/activity.log"
 
-# Words that exist as shell commands but are commonly used in natural language.
-AMBIGUOUS_COMMANDS=(
-  help read test time find make cut kill sleep wait sort patch break
-  return true false type echo get let set
-)
-
 arcadia_log() {
   mkdir -p "$(dirname "$LOG_FILE")"
   printf '%s %s\n' "$(date '+%H:%M')" "$1" >> "$LOG_FILE"
@@ -66,67 +60,6 @@ cd() {
   return 1
 }
 
-arcadia_is_prompt() {
-  local line="$1"
-  local trimmed="${line#"${line%%[![:space:]]*}"}"
-  trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
-
-  [[ -z "$trimmed" ]] && return 1
-
-  if [[ "$trimmed" == :* ]]; then
-    return 0
-  fi
-  if [[ "$trimmed" == !* ]]; then
-    return 1
-  fi
-
-  case "$trimmed" in
-    status|timeline|memory) return 1 ;;
-    memory\ *) return 1 ;;
-  esac
-
-  if [[ "$trimmed" =~ [\|\&\;\$\`\>\<\(] ]]; then
-    return 1
-  fi
-
-  if [[ "$trimmed" =~ ^[a-zA-Z_][a-zA-Z0-9_]*= ]]; then
-    return 1
-  fi
-  if [[ "$trimmed" =~ ^(cd|export|unset|alias|unalias|source|\.)[[:space:]] ]]; then
-    return 1
-  fi
-  if [[ "$trimmed" =~ ^(pnpm|arcadia|docker|tsx|npm)[[:space:]] ]] || [[ "$trimmed" =~ ^(pnpm|arcadia|docker)$ ]]; then
-    return 1
-  fi
-
-  if [[ "$trimmed" =~ ^(cd|pwd|clear|history|exit|logout)$ ]]; then
-    return 1
-  fi
-
-  local first="${trimmed%% *}"
-  local rest="${trimmed#"$first"}"
-  rest="${rest# }"
-
-  if [[ "$first" == ./* || "$first" == ../* || "$first" == /* ]]; then
-    return 1
-  fi
-
-  if [[ -n "$rest" ]]; then
-    local word
-    for word in "${AMBIGUOUS_COMMANDS[@]}"; do
-      if [[ "$first" == "$word" ]]; then
-        return 0
-      fi
-    done
-  fi
-
-  if command -v "$first" >/dev/null 2>&1; then
-    return 1
-  fi
-
-  return 0
-}
-
 arcadia_after_prompt() {
   arcadia_ensure_cwd "prompt" || true
   arcadia_newline_before_prompt
@@ -134,10 +67,6 @@ arcadia_after_prompt() {
 
 arcadia_run_command() {
   local line="$1"
-  if [[ "$line" == !* ]]; then
-    line="${line:1}"
-    line="${line#"${line%%[![:space:]]*}"}"
-  fi
   # shellcheck disable=SC2086
   eval "$line"
   arcadia_ensure_cwd "$line" || true
@@ -273,18 +202,14 @@ while true; do
     continue
   fi
 
-  if [[ "$line" == :* ]]; then
+  if [[ "$line" == @* ]]; then
     line="${line:1}"
     line="${line#"${line%%[![:space:]]*}"}"
+    [[ -z "$line" ]] && continue
     arcadia_invoke prompt "$line"
     arcadia_after_prompt
     continue
   fi
 
-  if arcadia_is_prompt "$line"; then
-    arcadia_invoke prompt "$line"
-    arcadia_after_prompt
-  else
-    arcadia_run_command "$line"
-  fi
+  arcadia_run_command "$line"
 done

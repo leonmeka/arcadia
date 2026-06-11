@@ -19,18 +19,16 @@ arcadia summon agent    # start and sync
 arcadia enter agent     # interactive shell
 ```
 
-Inside the agent (`enter`), type naturally; shell commands and prompts are routed automatically. While the agent works, you'll see live feedback for every step, tool call, and response:
+Inside the agent (`enter`), input is shell by default. Prefix with `@` to talk to the agent. While it works, you'll see live feedback for every step, tool call, and response:
 
 ```bash
 ls
 git status
-What files do you have access to?
+@What files do you have access to?
 status
 timeline
 memory
 ```
-
-Prefix with `!` to force a shell command (`!help`) or `:` to force a prompt (`: ls -la`).
 
 ## Commands
 
@@ -51,13 +49,11 @@ Prefix with `!` to force a shell command (`!help`) or `:` to force a prompt (`: 
 
 | Input | Description |
 |-------|-------------|
-| natural language | Sent to the agent via OpenCode |
-| shell commands (`ls`, `git`, …) | Run normally |
+| shell commands (`ls`, `git`, …) | Run normally (default) |
+| `@ text` | Send to the agent via OpenCode |
 | `status` | Show agent status |
 | `memory` | View or update curated memory (`memory shared` for workspace) |
 | `timeline` | View recent activity log |
-| `!cmd` | Force shell command |
-| `: text` | Force agent prompt |
 
 ## Concepts
 
