@@ -25,8 +25,8 @@ ls
 git status
 What files do you have access to?
 status
-journal
 timeline
+memory
 ```
 
 Prefix with `!` to force a shell command (`!help`) or `:` to force a prompt (`: ls -la`).
@@ -52,8 +52,8 @@ Prefix with `!` to force a shell command (`!help`) or `:` to force a prompt (`: 
 | natural language | Sent to the agent via OpenCode |
 | shell commands (`ls`, `git`, …) | Run normally |
 | `status` | Show agent status |
-| `journal` | View or append to journal |
-| `timeline` | View recent activity |
+| `memory` | View or update curated memory (`memory shared` for workspace) |
+| `timeline` | View recent activity log |
 | `!cmd` | Force shell command |
 | `: text` | Force agent prompt |
 
@@ -69,11 +69,11 @@ Prefix with `!` to force a shell command (`!help`) or `:` to force a prompt (`: 
 ```text
 /home/<agent>/
   workspace/     project files (shared across agents via Docker volume)
-  .agent/        memory — journal, state, activity log
+  .agent/        MEMORY.md, session, activity log
   .config/       engine config
 ```
 
-Your shell is jailed to `~/workspace`. The AI agent can only access the same directory. Agent memory lives in `~/.agent` and is read via `status`, `journal`, and `timeline`.
+Your shell is jailed to `~/workspace`. Private memory lives in `~/.agent/MEMORY.md`; shared memory in `workspace/.arcadia/MEMORY.md`. Both are loaded on every prompt. Conversation history continues via OpenCode session continuity.
 
 ## Storage
 

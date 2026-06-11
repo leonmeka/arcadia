@@ -102,6 +102,18 @@ ${propertyLines}
 Your display name is **${identity.name}**. Your Arcadia instance name is \`${agentName}\`. Introduce yourself with your display name unless the user asks for your instance name.`;
 }
 
+export const DEFAULT_PRIVATE_MEMORY = `# Private memory
+
+Curated facts, preferences, and ongoing threads for this agent only.
+Update when the user shares something worth remembering across sessions.
+`;
+
+export const DEFAULT_SHARED_MEMORY = `# Shared memory
+
+Facts and decisions for all agents using this workspace.
+Write here when something should be visible to every agent.
+`;
+
 export function buildAgentsMd(agentName: string, template: Template): string {
   const identity = resolveAgentIdentity(template);
   const body = buildAgentIdentity(template, agentName);
@@ -109,6 +121,21 @@ export function buildAgentsMd(agentName: string, template: Template): string {
   return `# ${identity.name}
 
 ${body}
+
+## Memory
+
+You have persistent memory loaded on every prompt:
+
+- **Private** — \`~/.agent/MEMORY.md\` (your notes, preferences, open threads)
+- **Shared** — \`.arcadia/MEMORY.md\` in the workspace (fleet-wide facts)
+
+Conversation history continues across prompts in the same session.
+
+When the user shares something worth remembering:
+- Personal preference or private context → update \`~/.agent/MEMORY.md\`
+- Project fact or decision for all agents → update \`.arcadia/MEMORY.md\`
+
+Keep memory terse and factual. Use \`memory\` / \`memory shared\` to view, or edit the files directly.
 
 You work in the project workspace. Your current directory (\`.\`) is the project root — use relative paths.
 

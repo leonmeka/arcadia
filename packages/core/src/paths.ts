@@ -45,3 +45,11 @@ export function agentAgentDir(name: string): string {
 export function agentAgentsMdPath(name: string): string {
   return `${agentAgentDir(name)}/AGENTS.md`;
 }
+
+export function agentMemoryPath(name: string): string {
+  return `${agentAgentDir(name)}/MEMORY.md`;
+}
+
+export function sharedMemoryPath(name: string): string {
+  return `${agentWorkspace(name)}/.arcadia/MEMORY.md`;
+}

@@ -21,14 +21,17 @@ export function parseOpencodeModel(model: string): {
 
 export function buildOpencodeConfig(
   model: string,
-  instructionsPath: string
+  instructionPaths: string | string[]
 ): string {
   const { opencodeModel, provider, modelId } = parseOpencodeModel(model);
+  const instructions = Array.isArray(instructionPaths)
+    ? instructionPaths
+    : [instructionPaths];
   return JSON.stringify(
     {
       $schema: "https://opencode.ai/config.json",
       model: opencodeModel,
-      instructions: [instructionsPath],
+      instructions,
       permission: {
         external_directory: "deny",
         read: {

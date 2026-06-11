@@ -9,12 +9,19 @@ import {
   agentAgentDir,
   agentAgentsMdPath,
   agentHome,
+  agentMemoryPath,
   agentWorkspace,
   containerName,
+  sharedMemoryPath,
 } from "./paths.js";
 import { docker, ensureWorkspaceVolume, getContainerState, startContainer } from "./docker.js";
 import { buildOpencodeConfig } from "./opencode.js";
-import { buildAgentsMd, resolveAgentIdentity } from "./identity.js";
+import {
+  DEFAULT_PRIVATE_MEMORY,
+  DEFAULT_SHARED_MEMORY,
+  buildAgentsMd,
+  resolveAgentIdentity,
+} from "./identity.js";
 import { listAgentNames, readAgentConfig } from "./config.js";
 import { installSkills, loadTemplateBySource } from "./templates.js";
 
@@ -24,6 +31,25 @@ function shellQuote(value: string): string {
 
 async function readAgentScript(name: string): Promise<string> {
   return readFile(join(AGENT_SCRIPTS_DIR, name), "utf8");
+}
+
+function memoryBootstrapScript(agentDir: string, workspace: string): string {
+  return [
+    `PRIVATE_MEM=${shellQuote(`${agentDir}/MEMORY.md`)}`,
+    `SHARED_MEM=${shellQuote(`${workspace}/.arcadia/MEMORY.md`)}`,
+    `mkdir -p ${shellQuote(`${workspace}/.arcadia`)}`,
+    `touch "$PRIVATE_MEM" "$SHARED_MEM"`,
+    `if [[ ! -s "$PRIVATE_MEM" ]]; then`,
+    `cat > "$PRIVATE_MEM" << 'ARCADIA_PRIVATE_MEM_EOF'`,
+    DEFAULT_PRIVATE_MEMORY,
+    `ARCADIA_PRIVATE_MEM_EOF`,
+    `fi`,
+    `if [[ ! -s "$SHARED_MEM" ]]; then`,
+    `cat > "$SHARED_MEM" << 'ARCADIA_SHARED_MEM_EOF'`,
+    DEFAULT_SHARED_MEMORY,
+    `ARCADIA_SHARED_MEM_EOF`,
+    `fi`,
+  ].join("\n");
 }
 
 function templateFromConfig(config: AgentConfig): Template {
@@ -52,10 +78,16 @@ async function buildWorkspaceSyncScript(
   const workspace = agentWorkspace(name);
   const agentDir = agentAgentDir(name);
   const agentsMdPath = agentAgentsMdPath(name);
+  const privateMemoryPath = agentMemoryPath(name);
+  const sharedMemPath = sharedMemoryPath(name);
   const envFile = `${home}/.arcadia.env`;
   const agentsMd = buildAgentsMd(name, template);
   const identity = resolveAgentIdentity(template);
-  const opencodeConfig = buildOpencodeConfig(config.model, agentsMdPath);
+  const opencodeConfig = buildOpencodeConfig(config.model, [
+    agentsMdPath,
+    privateMemoryPath,
+    sharedMemPath,
+  ]);
 
   return [
     `WS=${shellQuote(workspace)}`,
@@ -66,7 +98,8 @@ async function buildWorkspaceSyncScript(
     `  ln -s /workspace "$WS"`,
     `fi`,
     `mkdir -p "$WS" ${agentDir} "$WS/.arcadia"`,
-    `chown -R ${name}:${name} "$WS/.arcadia"`,
+    memoryBootstrapScript(agentDir, workspace),
+    `chown -R ${name}:${name} "$WS/.arcadia" ${agentDir}`,
     `rm -f ${workspace}/AGENTS.md`,
     `cat > ${agentsMdPath} << 'ARCADIA_EOF'\n${agentsMd}\nARCADIA_EOF`,
     `chown ${name}:${name} ${agentsMdPath}`,
@@ -120,8 +153,8 @@ async function buildAgentScriptInstallScript(): Promise<string> {
   const askScript = await readAgentScript("ask.sh");
   const streamScript = await readAgentScript("stream.sh");
   const statusScript = await readAgentScript("status.sh");
-  const journalScript = await readAgentScript("journal.sh");
   const timelineScript = await readAgentScript("timeline.sh");
+  const memoryScript = await readAgentScript("memory.sh");
 
   return [
     `cat > /usr/local/bin/arcadia-daemon << 'ARCADIA_EOF'\n${daemonScript}\nARCADIA_EOF`,
@@ -130,10 +163,10 @@ async function buildAgentScriptInstallScript(): Promise<string> {
     `cat > /usr/local/bin/ask << 'ARCADIA_EOF'\n${askScript}\nARCADIA_EOF`,
     `cat > /usr/local/bin/arcadia-stream << 'ARCADIA_EOF'\n${streamScript}\nARCADIA_EOF`,
     `cat > /usr/local/bin/status << 'ARCADIA_EOF'\n${statusScript}\nARCADIA_EOF`,
-    `cat > /usr/local/bin/journal << 'ARCADIA_EOF'\n${journalScript}\nARCADIA_EOF`,
     `cat > /usr/local/bin/timeline << 'ARCADIA_EOF'\n${timelineScript}\nARCADIA_EOF`,
-    "rm -f /usr/local/bin/send /usr/local/bin/inbox /usr/local/bin/arcadia-mail-deliver /usr/local/bin/arcadia-maild /usr/local/bin/bus /usr/local/bin/arcadia-busd /usr/local/bin/arcadia-bus-think /usr/local/bin/arcadia-bus-live",
-    "chmod +x /usr/local/bin/arcadia-daemon /usr/local/bin/arcadia-shell /usr/local/bin/arcadia-stream /usr/local/bin/prompt /usr/local/bin/ask /usr/local/bin/status /usr/local/bin/journal /usr/local/bin/timeline",
+    `cat > /usr/local/bin/memory << 'ARCADIA_EOF'\n${memoryScript}\nARCADIA_EOF`,
+    "rm -f /usr/local/bin/send /usr/local/bin/inbox /usr/local/bin/arcadia-mail-deliver /usr/local/bin/arcadia-maild /usr/local/bin/bus /usr/local/bin/arcadia-busd /usr/local/bin/arcadia-bus-think /usr/local/bin/arcadia-bus-live /usr/local/bin/journal",
+    "chmod +x /usr/local/bin/arcadia-daemon /usr/local/bin/arcadia-shell /usr/local/bin/arcadia-stream /usr/local/bin/prompt /usr/local/bin/ask /usr/local/bin/status /usr/local/bin/timeline /usr/local/bin/memory",
     "bash -n /usr/local/bin/arcadia-stream",
   ].join("\n");
 }
@@ -199,6 +232,13 @@ export async function createAgentContainer(
   const identity = resolveAgentIdentity(template);
   const agentsMd = buildAgentsMd(name, template);
   const agentsMdPath = agentAgentsMdPath(name);
+  const privateMemoryPath = agentMemoryPath(name);
+  const sharedMemPath = sharedMemoryPath(name);
+  const opencodeConfig = buildOpencodeConfig(model, [
+    agentsMdPath,
+    privateMemoryPath,
+    sharedMemPath,
+  ]);
 
   const profileVars: Record<string, string> = {
     ARCADIA_AGENT: name,
@@ -231,7 +271,8 @@ export async function createAgentContainer(
     "set -euo pipefail",
     `id -u ${name} &>/dev/null || useradd -m -s /bin/bash ${name}`,
     `mkdir -p ${agentDir} ${workspace} ${workspace}/.arcadia ${home}/.agents/skills`,
-    `chown -R ${name}:${name} ${home} ${workspace}/.arcadia`,
+    memoryBootstrapScript(agentDir, workspace),
+    `chown -R ${name}:${name} ${home} ${workspace}/.arcadia ${agentDir}`,
     ...profileCommands,
     "apt-get update -qq",
     `DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ${packages.join(" ")}`,
@@ -241,11 +282,11 @@ export async function createAgentContainer(
     `chown ${name}:${name} ${agentsMdPath}`,
     `mkdir -p ${home}/.config/opencode`,
     `cat > ${home}/.config/opencode/opencode.json << 'ARCADIA_OPENCODE_EOF'
-${buildOpencodeConfig(model, agentsMdPath)}
+${opencodeConfig}
 ARCADIA_OPENCODE_EOF`,
     `chown -R ${name}:${name} ${home}/.config`,
     ...(template.init || []),
-    `touch ${agentDir}/journal.md ${agentDir}/activity.log`,
+    `touch ${agentDir}/activity.log ${agentDir}/session.json`,
     `chown -R ${name}:${name} ${agentDir}`,
     `echo '${name} initialized' >> ${agentDir}/activity.log`,
   ].join("\n");

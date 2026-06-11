@@ -5,6 +5,7 @@ OPENCODE_ATTACH="${OPENCODE_ATTACH:-http://127.0.0.1:4096}"
 ARCADIA_WORKSPACE="${ARCADIA_WORKSPACE:-${HOME}/workspace}"
 LOG_FILE="${ASK_LOG_FILE:-}"
 STATE_FILE="${ASK_STATE_FILE:-}"
+SESSION_FILE="${ASK_SESSION_FILE:-}"
 REPLY_FILE="${ASK_REPLY_FILE:-}"
 USER_PROMPT="${ASK_PROMPT:-}"
 
@@ -41,6 +42,14 @@ update_state() {
   [[ -f "$STATE_FILE" ]] || echo '{}' > "$STATE_FILE"
   jq --arg k "$key" --arg v "$value" '.[$k] = $v' "$STATE_FILE" > "${STATE_FILE}.tmp"
   mv "${STATE_FILE}.tmp" "$STATE_FILE"
+}
+
+persist_session() {
+  [[ -n "$SESSION_FILE" && -n "$SESSION_ID" ]] || return 0
+  jq -n \
+    --arg id "$SESSION_ID" \
+    --arg updated "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '{sessionID: $id, updatedAt: $updated}' > "$SESSION_FILE"
 }
 
 preview() {
@@ -177,6 +186,7 @@ handle_session_event() {
   event_type="$(jq -r '.payload.type // empty' <<< "$payload")"
   if [[ "$event_type" == "session.created" ]]; then
     SESSION_ID="$(event_session "$payload")"
+    persist_session
   fi
   if [[ "$event_type" == "session.error" ]]; then
     local session err
@@ -204,6 +214,9 @@ handle_part() {
   part_type="$(jq -r '.type // empty' <<< "$part")"
   part_id="$(jq -r '.id // empty' <<< "$part")"
   part_session="$(jq -r '.sessionID // empty' <<< "$part")"
+  if [[ -n "$part_session" ]]; then
+    SESSION_ID="$part_session"
+  fi
   matches_session "$payload" "$part_session" || return 0
 
   case "$part_type" in
@@ -321,5 +334,7 @@ fi
 if [[ "$HAD_ERROR" -eq 0 && "$TOOL_COUNT" -gt 0 ]]; then
   log_activity "done"
 fi
+
+persist_session
 
 exit "$HAD_ERROR"

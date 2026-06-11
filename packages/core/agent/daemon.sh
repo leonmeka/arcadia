@@ -15,7 +15,7 @@ if [[ -f "${HOME}/.arcadia.env" ]]; then
 fi
 
 mkdir -p "$AGENT_DIR"
-touch "$AGENT_DIR/journal.md" "$LOG_FILE"
+touch "$LOG_FILE"
 
 log_activity() {
   echo "$(date '+%H:%M') $1" >> "$LOG_FILE"

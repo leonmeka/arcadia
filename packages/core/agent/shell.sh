@@ -78,8 +78,8 @@ arcadia_is_prompt() {
   fi
 
   case "$trimmed" in
-    status|journal|timeline) return 1 ;;
-    journal\ *) return 1 ;;
+    status|timeline|memory) return 1 ;;
+    memory\ *) return 1 ;;
   esac
 
   if [[ "$trimmed" =~ [\|\&\;\$\`\>\<\(] ]]; then

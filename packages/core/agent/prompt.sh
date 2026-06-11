@@ -8,7 +8,7 @@ fi
 
 AGENT_DIR="${ARCADIA_HOME:-$HOME}/.agent"
 STATE_FILE="$AGENT_DIR/state.json"
-JOURNAL_FILE="$AGENT_DIR/journal.md"
+SESSION_FILE="$AGENT_DIR/session.json"
 LOG_FILE="$AGENT_DIR/activity.log"
 MODEL="${ARCADIA_MODEL:-anthropic/claude-sonnet-4}"
 OPENCODE_ATTACH="${OPENCODE_ATTACH:-http://127.0.0.1:4096}"
@@ -30,7 +30,6 @@ fi
 
 PROMPT="$*"
 TIMESTAMP="$(date '+%H:%M')"
-DATE_HEADER="$(date '+%A, %B %-d')"
 REPLY_FILE_EXTERNAL=0
 if [[ -n "${ASK_REPLY_FILE:-}" ]]; then
   REPLY_FILE="$ASK_REPLY_FILE"
@@ -42,7 +41,7 @@ EVENT_FIFO="$(mktemp -u)"
 mkfifo "$EVENT_FIFO"
 
 mkdir -p "$AGENT_DIR"
-touch "$JOURNAL_FILE" "$LOG_FILE"
+touch "$LOG_FILE"
 
 case "$MODEL" in
   */*) OPENCODE_MODEL="$MODEL" ;;
@@ -53,11 +52,20 @@ echo "$TIMESTAMP Started: $PROMPT" >> "$LOG_FILE"
 
 export ASK_PROMPT="$PROMPT"
 export ASK_STATE_FILE="$STATE_FILE"
-export ASK_JOURNAL_FILE="$JOURNAL_FILE"
-export ASK_DATE_HEADER="$DATE_HEADER"
 export ASK_LOG_FILE="$LOG_FILE"
 export ASK_REPLY_FILE="$REPLY_FILE"
+export ASK_SESSION_FILE="$SESSION_FILE"
 export OPENCODE_ATTACH
+
+SESSION_ARGS=()
+if [[ -f "$SESSION_FILE" ]]; then
+  saved_session="$(jq -r '.sessionID // empty' "$SESSION_FILE" 2>/dev/null)" || saved_session=""
+  if [[ -n "$saved_session" ]]; then
+    SESSION_ARGS+=(--session "$saved_session")
+  else
+    SESSION_ARGS+=(--continue)
+  fi
+fi
 
 jq -n \
   --arg task "$PROMPT" \
@@ -75,6 +83,9 @@ RUN_ARGS=(
 )
 if curl -sf "${OPENCODE_ATTACH}/doc" >/dev/null 2>&1; then
   RUN_ARGS+=(--attach "$OPENCODE_ATTACH")
+fi
+if [[ ${#SESSION_ARGS[@]} -gt 0 ]]; then
+  RUN_ARGS+=("${SESSION_ARGS[@]}")
 fi
 RUN_ARGS+=("$PROMPT")
 
@@ -157,18 +168,6 @@ if [[ $EXIT_CODE -ne 0 ]]; then
   [[ "$REPLY_FILE_EXTERNAL" -eq 0 ]] && rm -f "$REPLY_FILE"
   exit "$EXIT_CODE"
 fi
-
-if ! grep -qF "## $DATE_HEADER" "$JOURNAL_FILE" 2>/dev/null; then
-  printf '\n## %s\n\n' "$DATE_HEADER" >> "$JOURNAL_FILE"
-fi
-
-{
-  printf 'Asked: %s\n\n' "$PROMPT"
-  if [[ -n "${REPLY//[[:space:]]/}" ]]; then
-    printf '%s\n' "$REPLY" | head -20
-  fi
-  printf '\nNext:\n- Review output in ~/workspace\n'
-} >> "$JOURNAL_FILE"
 
 jq -n \
   --arg task "$PROMPT" \
