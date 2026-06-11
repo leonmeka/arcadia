@@ -15,7 +15,7 @@ Requires [Docker](https://www.docker.com/) and Node.js 20+.
 ```bash
 arcadia create agent
 
-arcadia enter agent
+arcadia summon agent
 ```
 
 Inside the agent machine, type naturally; shell commands and prompts are routed automatically. While the agent works, you'll see live feedback for every step, tool call, and response:
@@ -40,10 +40,10 @@ Prefix with `!` to force a shell command (`!help`) or `:` to force a prompt (`: 
 | `arcadia create <name>` | Create a persistent agent |
 | `arcadia create <name> --from owner/repo/path` | Create from a Git template |
 | `arcadia list` | List agents |
-| `arcadia enter <name>` | Enter an agent machine |
+| `arcadia summon <name>` | Summon an agent |
 | `arcadia inspect <name>` | Show agent details |
-| `arcadia stop <name>` | Stop an agent |
-| `arcadia rm <name>` | Remove an agent |
+| `arcadia rest <name>` | Put an agent to rest |
+| `arcadia kill <name>` | Kill an agent |
 
 ### Agent commands (inside machine)
 
@@ -73,7 +73,7 @@ Prefix with `!` to force a shell command (`!help`) or `:` to force a prompt (`: 
   .config/       engine config
 ```
 
-Your shell is jailed to `~/workspace`. Private memory lives in `~/.agent/MEMORY.md`; shared memory in `workspace/.arcadia/MEMORY.md`. Both are loaded on every prompt. Conversation history continues via OpenCode session continuity.
+Your shell is jailed to `~/workspace`. Private memory lives in `~/.agent/MEMORY.md` (container-local, not shared with other agents). Shared memory lives in `workspace/.arcadia/MEMORY.md`. Both are loaded on every prompt. Conversation history continues via OpenCode session continuity.
 
 ## Storage
 
@@ -95,7 +95,7 @@ pnpm build           # builds all packages in dependency order
 
 pnpm dev list        # run the CLI from source
 pnpm dev create researcher
-pnpm dev enter researcher
+pnpm dev summon researcher
 ```
 
 ## License

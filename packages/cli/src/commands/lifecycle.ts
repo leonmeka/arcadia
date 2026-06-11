@@ -13,7 +13,7 @@ import {
   syncAgentScripts,
 } from "@arcadia/core";
 
-export async function enterCommand(name: string): Promise<void> {
+export async function summonCommand(name: string): Promise<void> {
   await ensureDocker();
 
   if (!(await agentExists(name))) {
@@ -35,7 +35,7 @@ export async function enterCommand(name: string): Promise<void> {
   await syncAgentScripts(name);
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    throw new Error("arcadia enter requires an interactive terminal.");
+    throw new Error("arcadia summon requires an interactive terminal.");
   }
 
   const home = agentHome(name);
@@ -66,7 +66,7 @@ export async function enterCommand(name: string): Promise<void> {
   process.exit(result.status ?? 1);
 }
 
-export async function stopCommand(name: string): Promise<void> {
+export async function restCommand(name: string): Promise<void> {
   await ensureDocker();
 
   if (!(await agentExists(name))) {
@@ -74,10 +74,10 @@ export async function stopCommand(name: string): Promise<void> {
   }
 
   await stopContainer(name);
-  console.log(`Stopped ${name}`);
+  console.log(`${name} is at rest`);
 }
 
-export async function rmCommand(name: string): Promise<void> {
+export async function killCommand(name: string): Promise<void> {
   await ensureDocker();
 
   if (!(await agentExists(name))) {
@@ -86,5 +86,5 @@ export async function rmCommand(name: string): Promise<void> {
 
   await removeContainer(name);
   await pruneOrphanedAgent(name);
-  console.log(`Removed ${name}`);
+  console.log(`Killed ${name}`);
 }

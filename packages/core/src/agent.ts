@@ -33,12 +33,29 @@ async function readAgentScript(name: string): Promise<string> {
   return readFile(join(AGENT_SCRIPTS_DIR, name), "utf8");
 }
 
-function memoryBootstrapScript(agentDir: string, workspace: string): string {
+function memoryBootstrapScript(
+  agentDir: string,
+  workspace: string,
+  name: string
+): string {
+  const privateMem = `${agentDir}/MEMORY.md`;
+  const workspacePrivateMem = `${workspace}/.arcadia/agents/${name}/MEMORY.md`;
   return [
-    `PRIVATE_MEM=${shellQuote(`${agentDir}/MEMORY.md`)}`,
+    `PRIVATE_MEM=${shellQuote(privateMem)}`,
+    `WORKSPACE_PRIVATE_MEM=${shellQuote(workspacePrivateMem)}`,
     `SHARED_MEM=${shellQuote(`${workspace}/.arcadia/MEMORY.md`)}`,
-    `mkdir -p ${shellQuote(`${workspace}/.arcadia`)}`,
+    `mkdir -p ${shellQuote(agentDir)} ${shellQuote(`${workspace}/.arcadia`)}`,
     `touch "$PRIVATE_MEM" "$SHARED_MEM"`,
+    `# Migrate mistaken workspace private memory back into container-local storage`,
+    `if [[ -s "$WORKSPACE_PRIVATE_MEM" ]]; then`,
+    `  if [[ ! -s "$PRIVATE_MEM" ]]; then`,
+    `    cp "$WORKSPACE_PRIVATE_MEM" "$PRIVATE_MEM"`,
+    `  else`,
+    `    cat "$WORKSPACE_PRIVATE_MEM" >> "$PRIVATE_MEM"`,
+    `  fi`,
+    `  rm -f "$WORKSPACE_PRIVATE_MEM"`,
+    `fi`,
+    `rm -rf ${shellQuote(`${workspace}/.arcadia/agents`)}`,
     `if [[ ! -s "$PRIVATE_MEM" ]]; then`,
     `cat > "$PRIVATE_MEM" << 'ARCADIA_PRIVATE_MEM_EOF'`,
     DEFAULT_PRIVATE_MEMORY,
@@ -98,7 +115,7 @@ async function buildWorkspaceSyncScript(
     `  ln -s /workspace "$WS"`,
     `fi`,
     `mkdir -p "$WS" ${agentDir} "$WS/.arcadia"`,
-    memoryBootstrapScript(agentDir, workspace),
+    memoryBootstrapScript(agentDir, workspace, name),
     `chown -R ${name}:${name} "$WS/.arcadia" ${agentDir}`,
     `rm -f ${workspace}/AGENTS.md`,
     `cat > ${agentsMdPath} << 'ARCADIA_EOF'\n${agentsMd}\nARCADIA_EOF`,
@@ -269,7 +286,7 @@ export async function createAgentContainer(
     "set -euo pipefail",
     `id -u ${name} &>/dev/null || useradd -m -s /bin/bash ${name}`,
     `mkdir -p ${agentDir} ${workspace} ${workspace}/.arcadia ${home}/.agents/skills`,
-    memoryBootstrapScript(agentDir, workspace),
+    memoryBootstrapScript(agentDir, workspace, name),
     `chown -R ${name}:${name} ${home} ${workspace}/.arcadia ${agentDir}`,
     ...profileCommands,
     "apt-get update -qq",

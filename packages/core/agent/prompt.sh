@@ -28,6 +28,53 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 1
 fi
 
+extract_memory_fact() {
+  local prompt="$1"
+  local fact=""
+
+  [[ "$prompt" =~ [Mm]emory|[Rr]emember ]] || return 1
+
+  if [[ "$prompt" =~ \"([^\"]+)\" ]]; then
+    fact="${BASH_REMATCH[1]}"
+  elif [[ "$prompt" =~ [Mm]emory:[[:space:]]*(.+) ]]; then
+    fact="${BASH_REMATCH[1]}"
+  elif [[ "$prompt" =~ [Rr]emember[[:space:]]+(that[[:space:]]+)?(.+) ]]; then
+    fact="${BASH_REMATCH[2]}"
+  fi
+
+  fact="${fact#"${fact%%[![:space:]]*}"}"
+  fact="${fact%"${fact##*[![:space:]]}"}"
+  fact="${fact%.}"
+
+  [[ -n "$fact" ]] || return 1
+  printf '%s' "$fact"
+}
+
+save_memory_request() {
+  local prompt="$1"
+  local fact shared=0
+
+  fact="$(extract_memory_fact "$prompt")" || return 1
+  [[ "$prompt" =~ [Ss]hared[[:space:]]+memory ]] && shared=1
+
+  if [[ "$shared" -eq 1 ]]; then
+    memory shared add "$fact"
+    echo "Saved to shared memory: $fact"
+  else
+    memory add "$fact"
+    echo "Saved to private memory: $fact"
+  fi
+  echo "$(date '+%H:%M') Memory: $fact" >> "$LOG_FILE"
+}
+
+is_memory_only_prompt() {
+  local prompt="$1"
+  [[ "$prompt" =~ [Mm]emory|[Rr]emember ]] || return 1
+  [[ "$prompt" =~ [Aa]nd[[:space:]]+(then|also) ]] && return 1
+  [[ "$prompt" =~ (list|run|create|delete|fix|check|build|deploy)[[:space:]] ]] && return 1
+  return 0
+}
+
 PROMPT="$*"
 TIMESTAMP="$(date '+%H:%M')"
 REPLY_FILE_EXTERNAL=0
@@ -49,6 +96,20 @@ case "$MODEL" in
 esac
 
 echo "$TIMESTAMP Started: $PROMPT" >> "$LOG_FILE"
+
+if is_memory_only_prompt "$PROMPT" && save_memory_request "$PROMPT"; then
+  jq -n \
+    --arg task "$PROMPT" \
+    --arg completed "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '{status: "idle", lastTask: $task, completedAt: $completed}' \
+    > "$STATE_FILE"
+  exit 0
+fi
+
+if MEMORY_FACT="$(extract_memory_fact "$PROMPT" 2>/dev/null)"; then
+  save_memory_request "$PROMPT" >/dev/null
+  PROMPT="[Already saved to memory: \"$MEMORY_FACT\"] $PROMPT"
+fi
 
 export ASK_PROMPT="$PROMPT"
 export ASK_STATE_FILE="$STATE_FILE"

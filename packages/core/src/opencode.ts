@@ -33,7 +33,9 @@ export function buildOpencodeConfig(
       model: opencodeModel,
       instructions,
       permission: {
-        external_directory: "deny",
+        external_directory: {
+          "~/.agent/**": "allow",
+        },
         read: {
           "*": "allow",
           "/": "deny",

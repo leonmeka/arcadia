@@ -20,11 +20,11 @@ program
   });
 
 program
-  .command("enter <name>")
-  .description("Enter an agent machine")
+  .command("summon <name>")
+  .description("Summon an agent")
   .action(async (name: string) => {
-    const { enterCommand } = await import("./commands/lifecycle.js");
-    await enterCommand(name);
+    const { summonCommand } = await import("./commands/lifecycle.js");
+    await summonCommand(name);
   });
 
 program
@@ -44,19 +44,19 @@ program
   });
 
 program
-  .command("stop <name>")
-  .description("Stop an agent")
+  .command("rest <name>")
+  .description("Rest an agent")
   .action(async (name: string) => {
-    const { stopCommand } = await import("./commands/lifecycle.js");
-    await stopCommand(name);
+    const { restCommand } = await import("./commands/lifecycle.js");
+    await restCommand(name);
   });
 
 program
-  .command("rm <name>")
-  .description("Remove an agent")
+  .command("kill <name>")
+  .description("Kill an agent")
   .action(async (name: string) => {
-    const { rmCommand } = await import("./commands/lifecycle.js");
-    await rmCommand(name);
+    const { killCommand } = await import("./commands/lifecycle.js");
+    await killCommand(name);
   });
 
 program.parseAsync(process.argv).catch((error: unknown) => {

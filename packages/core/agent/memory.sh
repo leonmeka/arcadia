@@ -1,9 +1,15 @@
 #!/bin/bash
 set -euo pipefail
 
+if [[ -f "${HOME}/.arcadia.env" ]]; then
+  # shellcheck disable=SC1091
+  . "${HOME}/.arcadia.env"
+fi
+
 AGENT_DIR="${ARCADIA_HOME:-$HOME}/.agent"
+WORKSPACE="${ARCADIA_WORKSPACE:-$HOME/workspace}"
 PRIVATE_FILE="$AGENT_DIR/MEMORY.md"
-SHARED_FILE="${ARCADIA_WORKSPACE:-$HOME/workspace}/.arcadia/MEMORY.md"
+SHARED_FILE="$WORKSPACE/.arcadia/MEMORY.md"
 
 usage() {
   cat >&2 << 'EOF'
