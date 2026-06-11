@@ -1,4 +1,5 @@
 import keytar from "keytar";
+import { MissingSecretsError } from "@/errors";
 
 const SERVICE = "arcadia";
 
@@ -14,7 +15,7 @@ export async function deleteSecret(name: string): Promise<boolean> {
   return keytar.deletePassword(SERVICE, name);
 }
 
-export async function ensureSecrets(
+export async function resolveSecrets(
   required: string[],
   provided: Record<string, string> = {}
 ): Promise<Record<string, string>> {
@@ -33,22 +34,12 @@ export async function ensureSecrets(
     const existing = await getSecret(secret);
     if (existing) {
       resolved[secret] = existing;
-      continue;
     }
+  }
 
-    const prompts = (await import("prompts")).default;
-    const response = await prompts({
-      type: "password",
-      name: "value",
-      message: `${secret} required\n\nEnter value:`,
-    });
-
-    if (!response.value) {
-      throw new Error(`Secret ${secret} is required`);
-    }
-
-    await setSecret(secret, response.value);
-    resolved[secret] = response.value;
+  const missing = required.filter((secret) => !resolved[secret]);
+  if (missing.length > 0) {
+    throw new MissingSecretsError(missing);
   }
 
   return resolved;

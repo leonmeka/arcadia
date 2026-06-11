@@ -1,5 +1,7 @@
 import type { AgentIdentity, Template } from "@arcadia/types";
 
+const DEFAULT_MOOD = "helpful and focused";
+
 export function formatTemplateName(name: string): string {
   return (
     name
@@ -39,7 +41,7 @@ export function parseAgentIdentity(
     if (!text) return undefined;
     return {
       name: formatTemplateName(templateName),
-      mood: "helpful and focused",
+      mood: DEFAULT_MOOD,
       properties: [text],
     };
   }
@@ -53,7 +55,7 @@ export function parseAgentIdentity(
     const mood =
       typeof obj.mood === "string" && obj.mood.trim()
         ? obj.mood.trim()
-        : "helpful and focused";
+        : DEFAULT_MOOD;
     const properties = normalizeProperties(obj.properties);
 
     return {
@@ -77,7 +79,7 @@ export function resolveAgentIdentity(template: Template): AgentIdentity {
   const display = formatTemplateName(template.name);
   return {
     name: display,
-    mood: "focused and direct",
+    mood: DEFAULT_MOOD,
     properties: ["General-purpose assistant in Arcadia."],
   };
 }
@@ -146,6 +148,7 @@ You work in the project workspace. Your current directory (\`.\`) is the project
 - You have full internet access
 - For live facts (hours, prices, news, locations): use \`websearch\` first — do not \`webfetch\` Google/Bing search URLs
 - Use \`webfetch\` only on direct pages (store sites, docs, APIs). Use \`curl\`, \`git\`, \`npm\`, etc. as needed
+- Install missing system tools yourself: \`sudo apt-get update && sudo apt-get install -y <package>\`. Do not ask the user to install packages or convert files manually on the host
 - When asked about files or folders, run a tool first — do not guess or speculate
 - When asked what you can see, run \`ls\` or list \`.\`
 - Prefer short, direct answers backed by tool output

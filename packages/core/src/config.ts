@@ -2,23 +2,33 @@ import { readFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import yaml from "js-yaml";
 import type { AgentConfig } from "@arcadia/types";
-import { agentContainerConfigPath } from "./paths.js";
-import { parseAgentIdentity } from "./identity.js";
+import { agentContainerConfigPath } from "@/paths";
+import { parseAgentIdentity } from "@/identity";
 import {
   containerExists,
   listArcadiaAgentNames,
   readContainerFile,
   writeContainerFile,
-} from "./docker.js";
+} from "@/docker";
+
+export function resolveTemplateName(config: AgentConfig): string {
+  if (config.templateName) {
+    return config.templateName;
+  }
+
+  if (config.template.startsWith("github:")) {
+    const path = config.template.slice("github:".length);
+    const parts = path.split("/").filter(Boolean);
+    return parts[parts.length - 1] ?? parts[1] ?? "default";
+  }
+
+  return config.template.replace(/^local:/, "").split("/")[0] ?? "default";
+}
 
 function parseAgentConfig(raw: string): AgentConfig {
-  const config = yaml.load(raw) as AgentConfig & { identity?: unknown };
-  const templateName =
-    config.templateName ??
-    config.template?.replace(/^local:/, "").split("/")[0] ??
-    "default";
+  const config = JSON.parse(raw) as AgentConfig & { identity?: unknown };
+  const templateName = resolveTemplateName(config);
 
   if (config.identity != null && typeof config.identity === "string") {
     config.identity = parseAgentIdentity(config.identity, templateName);
@@ -28,7 +38,7 @@ function parseAgentConfig(raw: string): AgentConfig {
 }
 
 function legacyHostConfigPath(name: string): string {
-  return join(homedir(), ".arcadia", "agents", name, "config.yaml");
+  return join(homedir(), ".arcadia", "agents", name, "config.json");
 }
 
 async function migrateLegacyHostConfig(name: string): Promise<void> {

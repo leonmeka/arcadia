@@ -5,11 +5,12 @@ import {
   agentExists,
   createAgentContainer,
   ensureDocker,
-  ensureSecrets,
   removeContainer,
-  resolveTemplate,
-  syncFleetToAllAgents,
+  syncAgentScripts,
+  validateOpenRouterModel,
 } from "@arcadia/core";
+import { ensureSecrets } from "@/lib/secrets";
+import { pickTemplate } from "@/lib/templates";
 
 export async function createCommand(
   options: CreateCommandOptions
@@ -25,11 +26,10 @@ export async function createCommand(
     throw new Error(`Agent already exists: ${name}`);
   }
 
-  const template = await resolveTemplate(name, options.from);
-  const model =
-    options.model ||
-    template.defaults.model ||
-    "anthropic/claude-sonnet-4";
+  const template = await pickTemplate(name, options.template);
+  const model = await validateOpenRouterModel(
+    options.model ?? template.model
+  );
 
   const secrets = await ensureSecrets(template.secrets.required);
 
@@ -38,7 +38,7 @@ export async function createCommand(
     await createAgentContainer({ name, template, model, secrets });
     provisionSpinner.succeed("Configuring machine");
 
-    await syncFleetToAllAgents();
+    await syncAgentScripts(name);
 
     ora("Starting agent").start().succeed("Starting agent");
 

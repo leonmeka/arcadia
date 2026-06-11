@@ -16,20 +16,18 @@
     "agent"
   ],
   "scripts": {
-    "build": "tsc"
+    "build": "tsc && tsc-alias -f -fe .js"
   },
   "license": "MIT",
   "dependencies": {
     "@arcadia/templates": "workspace:*",
     "@arcadia/types": "workspace:*",
-    "js-yaml": "^4.1.0",
-    "keytar": "^7.9.0",
-    "prompts": "^2.4.2"
+    "@openrouter/sdk": "^0.12.79",
+    "jiti": "^2.4.2",
+    "keytar": "^7.9.0"
   },
   "devDependencies": {
-    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.15.21",
-    "@types/prompts": "^2.4.9",
     "typescript": "^5.8.3"
   }
 }

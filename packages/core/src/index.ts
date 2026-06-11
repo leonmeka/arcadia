@@ -1,8 +1,10 @@
-export * from "./paths.js";
-export * from "./config.js";
-export * from "./secrets.js";
-export * from "./docker.js";
-export * from "./templates.js";
-export * from "./opencode.js";
-export * from "./identity.js";
-export * from "./agent.js";
+export * from "@/errors";
+export * from "@/paths";
+export * from "@/config";
+export * from "@/secrets";
+export * from "@/docker";
+export * from "@/templates/index";
+export { buildOpencodeConfig } from "@/opencode";
+export { validateOpenRouterModel } from "@/openrouter";
+export * from "@/identity";
+export * from "@/agent";

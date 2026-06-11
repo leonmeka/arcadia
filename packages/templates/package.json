@@ -3,24 +3,23 @@
   "version": "0.1.0",
   "description": "Built-in agent templates for Arcadia",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
     }
   },
   "files": [
-    "dist",
-    "default"
+    "dist"
   ],
   "scripts": {
     "build": "tsc"
   },
   "license": "MIT",
+  "dependencies": {
+    "@arcadia/types": "workspace:*"
+  },
   "devDependencies": {
-    "@types/node": "^22.15.21",
     "typescript": "^5.8.3"
   }
 }

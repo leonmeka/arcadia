@@ -18,6 +18,9 @@
     "build": "tsc"
   },
   "license": "MIT",
+  "dependencies": {
+    "@openrouter/sdk": "^0.12.79"
+  },
   "devDependencies": {
     "typescript": "^5.8.3"
   }

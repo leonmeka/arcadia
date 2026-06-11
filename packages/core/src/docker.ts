@@ -8,7 +8,7 @@ import {
   CONTAINER_LABEL,
   CONTAINER_PREFIX,
   containerName,
-} from "./paths.js";
+} from "@/paths";
 
 const execFileAsync = promisify(execFile);
 

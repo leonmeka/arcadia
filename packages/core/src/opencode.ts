@@ -1,25 +1,8 @@
-export function toOpencodeModel(model: string): string {
-  return model.includes("/") ? model : `openrouter/${model}`;
+function toOpencodeModel(model: string): string {
+  return model.startsWith("openrouter/") ? model : `openrouter/${model}`;
 }
 
-export function parseOpencodeModel(model: string): {
-  opencodeModel: string;
-  provider: string;
-  modelId: string;
-} {
-  const opencodeModel = toOpencodeModel(model);
-  const slash = opencodeModel.indexOf("/");
-  if (slash === -1) {
-    return { opencodeModel, provider: "openrouter", modelId: opencodeModel };
-  }
-  return {
-    opencodeModel,
-    provider: opencodeModel.slice(0, slash),
-    modelId: opencodeModel.slice(slash + 1),
-  };
-}
-
-export function buildOpencodePermissions(): Record<string, unknown> {
+function buildOpencodePermissions(): Record<string, unknown> {
   return {
     external_directory: {
       "~/.agent/**": "allow",
@@ -58,7 +41,7 @@ export function buildOpencodeConfig(
   model: string,
   instructionPaths: string | string[]
 ): string {
-  const { opencodeModel, provider, modelId } = parseOpencodeModel(model);
+  const opencodeModel = toOpencodeModel(model);
   const instructions = Array.isArray(instructionPaths)
     ? instructionPaths
     : [instructionPaths];
@@ -69,9 +52,12 @@ export function buildOpencodeConfig(
       instructions,
       permission: buildOpencodePermissions(),
       provider: {
-        [provider]: {
+        openrouter: {
+          options: {
+            apiKey: "{env:OPENROUTER_API_KEY}",
+          },
           models: {
-            [modelId]: { name: modelId },
+            [model]: { name: model },
           },
         },
       },

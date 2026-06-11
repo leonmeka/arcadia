@@ -37,7 +37,7 @@ memory
 | Command | Description |
 |---------|-------------|
 | `arcadia create <name>` | Create a persistent agent |
-| `arcadia create <name> --from owner/repo/path` | Create from a Git template |
+| `arcadia create <name> --template <id>` | Create from a built-in template |
 | `arcadia list` | List agents |
 | `arcadia summon <name>` | Summon an agent (start and sync) |
 | `arcadia enter <name>` | Enter an agent (interactive shell) |
@@ -58,7 +58,7 @@ memory
 ## Concepts
 
 - **Agent** — A persistent AI resident with its own machine, memory, and home directory
-- **Template** — A Git-hosted blueprint for creating agents
+- **Template** — TypeScript blueprint for creating agents, defined in `@arcadia/templates`
 - **Workspace** — Shared project files at `~/workspace` inside each agent machine
 - **Engine** — [OpenCode](https://opencode.ai) (MIT, 75+ providers). The agent shell routes natural language to OpenCode; everything else runs as normal shell commands.
 - **Network** — Agents have full outbound internet (web fetch, search, `curl`, `git`, package installs). The workspace jail applies to filesystem paths only.
@@ -68,7 +68,7 @@ memory
 ```text
 /home/<agent>/
   workspace/     project files (shared across agents via Docker volume)
-  .agent/        config.yaml, MEMORY.md, session, activity log
+  .agent/        config.json, MEMORY.md, session, activity log
   .config/       engine config
 ```
 
@@ -76,9 +76,27 @@ Your shell is jailed to `~/workspace`. Private memory lives in `~/.agent/MEMORY.
 
 ## Storage
 
-Each agent is a Docker container. Agent config lives at `~/.agent/config.yaml` inside the container. The shared workspace uses the `arcadia-workspace` Docker volume.
+Each agent is a Docker container. Agent config lives at `~/.agent/config.json` inside the container. The shared workspace uses the `arcadia-workspace` Docker volume.
 
-API keys are stored in platform-native secure storage (macOS Keychain, Linux Secret Service, Windows Credential Manager) and injected into the container at create time.
+API keys are stored in platform-native secure storage (macOS Keychain, Linux Secret Service, Windows Credential Manager) and injected into the container at create time. Agents use [OpenRouter](https://openrouter.ai) — set `OPENROUTER_API_KEY` when prompted. Models must be OpenRouter IDs that support tool calling (validated at create time).
+
+### Templates and models
+
+Built-in templates are one file per template in `packages/templates/src/`. Register new ones in `packages/core/src/templates/registry.ts`. External templates can live in any GitHub repo — point at them with `--template owner/repo`. See `packages/templates/README.md`.
+
+```bash
+arcadia create my-agent                              # uses the default template
+arcadia create my-agent --model anthropic/claude-sonnet-4
+arcadia create my-agent --template default           # explicit built-in template
+arcadia create my-agent --template owner/repo        # GitHub template repo
+arcadia create my-agent --template owner/repo@main   # specific branch
+```
+
+`--model` accepts any [OpenRouter model ID](https://openrouter.ai/models) that supports tools. Chat-only models are rejected because agents need tool calling.
+
+### Permissions
+
+`@` prompts run through OpenCode with the permission policy in `~/.config/opencode/opencode.json` inside the agent. The workspace shell is jailed to `~/workspace`; OpenCode tools follow the configured read/edit/bash rules.
 
 ## Development
 

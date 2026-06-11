@@ -10,7 +10,7 @@ AGENT_DIR="${ARCADIA_HOME:-$HOME}/.agent"
 STATE_FILE="$AGENT_DIR/state.json"
 SESSION_FILE="$AGENT_DIR/session.json"
 LOG_FILE="$AGENT_DIR/activity.log"
-MODEL="${ARCADIA_MODEL:-anthropic/claude-sonnet-4}"
+MODEL="${ARCADIA_MODEL:?ARCADIA_MODEL is not set}"
 OPENCODE_ATTACH="${OPENCODE_ATTACH:-http://127.0.0.1:4096}"
 
 if [[ $# -lt 1 ]]; then
@@ -91,7 +91,7 @@ mkdir -p "$AGENT_DIR"
 touch "$LOG_FILE"
 
 case "$MODEL" in
-  */*) OPENCODE_MODEL="$MODEL" ;;
+  openrouter/*) OPENCODE_MODEL="$MODEL" ;;
   *) OPENCODE_MODEL="openrouter/$MODEL" ;;
 esac
 
@@ -140,7 +140,6 @@ RUN_ARGS=(
   run
   -m "$OPENCODE_MODEL"
   --thinking
-  --dangerously-skip-permissions
 )
 if curl -sf "${OPENCODE_ATTACH}/doc" >/dev/null 2>&1; then
   RUN_ARGS+=(--attach "$OPENCODE_ATTACH")

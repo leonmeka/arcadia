@@ -10,7 +10,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsc-alias -f -fe .js",
     "dev": "tsx src/cli.ts"
   },
   "engines": {
@@ -37,10 +37,12 @@
     "@arcadia/types": "workspace:*",
     "chalk": "^5.4.1",
     "commander": "^13.1.0",
-    "ora": "^8.2.0"
+    "ora": "^8.2.0",
+    "prompts": "^2.4.2"
   },
   "devDependencies": {
     "@types/node": "^22.15.21",
+    "@types/prompts": "^2.4.9",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"
   }

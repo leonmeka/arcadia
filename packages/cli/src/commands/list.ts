@@ -4,6 +4,7 @@ import {
   getContainerState,
   listAgentNames,
   readAgentConfig,
+  resolveTemplateName,
   resolveAgentIdentity,
 } from "@arcadia/core";
 
@@ -48,16 +49,13 @@ export async function inspectCommand(name: string): Promise<void> {
 
   const state = await getContainerState(name);
   const config = await readAgentConfig(name);
-  const templateName =
-    config.templateName ??
-    config.template.replace(/^local:/, "").split("/")[0] ??
-    "default";
+  const templateName = resolveTemplateName(config);
   const identity =
     config.identity ??
     resolveAgentIdentity({
       name: templateName,
       source: config.template,
-      defaults: {},
+      model: config.model,
       skills: [],
       packages: [],
       secrets: { required: [] },

@@ -1,7 +1,34 @@
+export type { ModelId as Model } from "@openrouter/sdk/types/models";
+
+import type { ModelId as Model } from "@openrouter/sdk/types/models";
+
 export interface AgentIdentity {
   name: string;
   mood: string;
   properties: string[];
+}
+
+export interface TemplateSecrets {
+  required: string[];
+}
+
+export interface TemplateDefinition {
+  name: string;
+  model: Model;
+  identity?: AgentIdentity;
+  skills?: readonly string[];
+  packages?: readonly string[];
+  secrets?: { required: readonly string[] };
+}
+
+export interface Template {
+  name: string;
+  source: string;
+  model: Model;
+  identity?: AgentIdentity;
+  skills: string[];
+  packages: string[];
+  secrets: TemplateSecrets;
 }
 
 export interface AgentConfig {
@@ -10,36 +37,16 @@ export interface AgentConfig {
   templateName: string;
   identity?: AgentIdentity;
   image: string;
-  model: string;
+  model: Model;
   createdAt: string;
   skills: string[];
   packages: string[];
   secrets: string[];
 }
 
-export interface TemplateDefaults {
-  model?: string;
-}
-
-export interface TemplateSecrets {
-  required: string[];
-}
-
-export interface Template {
-  name: string;
-  source: string;
-  identity?: AgentIdentity;
-  defaults: TemplateDefaults;
-  skills: string[];
-  packages: string[];
-  secrets: TemplateSecrets;
-  init?: string[];
-}
-
 export interface TemplateIndexEntry {
   id: string;
   name: string;
-  path: string;
   source: string;
 }
 
@@ -48,12 +55,12 @@ export type ContainerState = "online" | "idle" | "stopped" | "missing";
 export interface CreateAgentOptions {
   name: string;
   template: Template;
-  model: string;
+  model: Model;
   secrets: Record<string, string>;
 }
 
 export interface CreateCommandOptions {
   name: string;
-  from?: string;
+  template?: string;
   model?: string;
 }

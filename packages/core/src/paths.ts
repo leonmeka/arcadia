@@ -31,7 +31,7 @@ export function agentAgentDir(name: string): string {
 }
 
 export function agentContainerConfigPath(name: string): string {
-  return `${agentAgentDir(name)}/config.yaml`;
+  return `${agentAgentDir(name)}/config.json`;
 }
 
 export function agentAgentsMdPath(name: string): string {
