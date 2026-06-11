@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import yaml from "js-yaml";
 import type { AgentConfig, FleetPeer, GlobalConfig } from "@arcadia/types";
@@ -104,4 +104,10 @@ export async function listAgentNames(): Promise<string[]> {
 
 export async function agentExists(name: string): Promise<boolean> {
   return existsSync(agentConfigPath(name));
+}
+
+/** Drop local config for an agent whose container no longer exists. */
+export async function pruneOrphanedAgent(name: string): Promise<void> {
+  if (!(await agentExists(name))) return;
+  await rm(agentDir(name), { recursive: true, force: true });
 }

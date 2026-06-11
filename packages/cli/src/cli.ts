@@ -28,11 +28,11 @@ program
   });
 
 program
-  .command("ls")
+  .command("list")
   .description("List agents")
   .action(async () => {
-    const { lsCommand } = await import("./commands/list.js");
-    await lsCommand();
+    const { listCommand } = await import("./commands/list.js");
+    await listCommand();
   });
 
 program

@@ -1,7 +1,9 @@
 import type { ContainerState } from "@arcadia/types";
 import {
+  agentExists,
   getContainerState,
   listAgentNames,
+  pruneOrphanedAgent,
   readAgentConfig,
   resolveAgentIdentity,
 } from "@arcadia/core";
@@ -18,7 +20,7 @@ function formatState(state: ContainerState): string {
   }
 }
 
-export async function lsCommand(): Promise<void> {
+export async function listCommand(): Promise<void> {
   const names = await listAgentNames();
 
   if (names.length === 0) {
@@ -26,12 +28,16 @@ export async function lsCommand(): Promise<void> {
     return;
   }
 
-  const rows = await Promise.all(
-    names.map(async (name) => {
-      const state = await getContainerState(name);
-      return { name, state: formatState(state) };
-    })
-  );
+  const rows: { name: string; state: string }[] = [];
+
+  for (const name of names) {
+    const state = await getContainerState(name);
+    if (state === "missing") {
+      await pruneOrphanedAgent(name);
+      continue;
+    }
+    rows.push({ name, state: formatState(state) });
+  }
 
   const nameWidth = Math.max(...rows.map((r) => r.name.length), 4);
 
@@ -41,8 +47,17 @@ export async function lsCommand(): Promise<void> {
 }
 
 export async function inspectCommand(name: string): Promise<void> {
-  const config = await readAgentConfig(name);
+  if (!(await agentExists(name))) {
+    throw new Error(`Agent not found: ${name}`);
+  }
+
   const state = await getContainerState(name);
+  if (state === "missing") {
+    await pruneOrphanedAgent(name);
+    throw new Error(`Agent not found: ${name}`);
+  }
+
+  const config = await readAgentConfig(name);
   const templateName =
     config.templateName ??
     config.template.replace(/^local:/, "").split("/")[0] ??

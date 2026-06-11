@@ -39,7 +39,7 @@ Prefix with `!` to force a shell command (`!help`) or `:` to force a prompt (`: 
 |---------|-------------|
 | `arcadia create <name>` | Create a persistent agent |
 | `arcadia create <name> --from owner/repo/path` | Create from a Git template |
-| `arcadia ls` | List agents |
+| `arcadia list` | List agents |
 | `arcadia enter <name>` | Enter an agent machine |
 | `arcadia inspect <name>` | Show agent details |
 | `arcadia stop <name>` | Stop an agent |
@@ -93,7 +93,7 @@ Secrets are stored in platform-native secure storage (macOS Keychain, Linux Secr
 pnpm install
 pnpm build           # builds all packages in dependency order
 
-pnpm dev ls          # run the CLI from source
+pnpm dev list        # run the CLI from source
 pnpm dev create researcher
 pnpm dev enter researcher
 ```

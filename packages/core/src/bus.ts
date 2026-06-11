@@ -71,8 +71,7 @@ export async function ensureBusContainer(): Promise<void> {
   ]);
 }
 
-export async function connectAgentToNetwork(agentContainer: string): Promise<void> {
-  await ensureArcadiaNetwork();
+export async function isOnArcadiaNetwork(agentContainer: string): Promise<boolean> {
   try {
     const raw = await docker([
       "inspect",
@@ -81,16 +80,25 @@ export async function connectAgentToNetwork(agentContainer: string): Promise<voi
       agentContainer,
     ]);
     const networks = JSON.parse(raw) as Record<string, unknown>;
-    if (networks[ARCADIA_NETWORK]) return;
+    return ARCADIA_NETWORK in networks;
   } catch {
-    return;
+    return false;
   }
+}
 
-  try {
-    await docker(["network", "connect", ARCADIA_NETWORK, agentContainer]);
-  } catch {
-    // already connected or container missing
+export async function connectAgentToNetwork(
+  agentContainer: string,
+  alias?: string
+): Promise<void> {
+  await ensureArcadiaNetwork();
+  if (await isOnArcadiaNetwork(agentContainer)) return;
+
+  const args = ["network", "connect"];
+  if (alias) {
+    args.push("--alias", alias);
   }
+  args.push(ARCADIA_NETWORK, agentContainer);
+  await docker(args);
 }
 
 export async function ensureFleetBus(): Promise<void> {

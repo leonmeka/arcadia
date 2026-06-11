@@ -1,13 +1,13 @@
 import { spawnSync } from "node:child_process";
-import { rm } from "node:fs/promises";
 import {
-  agentDir,
   agentExists,
   agentHome,
   agentWorkspace,
   containerName,
   ensureDocker,
+  ensureFleetNetwork,
   getContainerState,
+  pruneOrphanedAgent,
   removeContainer,
   startContainer,
   stopContainer,
@@ -23,8 +23,9 @@ export async function enterCommand(name: string): Promise<void> {
 
   const state = await getContainerState(name);
   if (state === "missing") {
+    await pruneOrphanedAgent(name);
     throw new Error(
-      `Agent container missing: ${name}. Try recreating the agent.`
+      `Agent not found: ${name}. Create it again with: arcadia create ${name}`
     );
   }
 
@@ -32,6 +33,7 @@ export async function enterCommand(name: string): Promise<void> {
     await startContainer(name);
   }
 
+  await ensureFleetNetwork();
   await syncAgentScripts(name);
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
@@ -85,6 +87,6 @@ export async function rmCommand(name: string): Promise<void> {
   }
 
   await removeContainer(name);
-  await rm(agentDir(name), { recursive: true, force: true });
+  await pruneOrphanedAgent(name);
   console.log(`Removed ${name}`);
 }

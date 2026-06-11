@@ -111,8 +111,33 @@ export async function syncAgentWorkspace(name: string): Promise<void> {
   await docker(["exec", containerName(name), "bash", "-lc", syncScript]);
 }
 
+/** Ensure the fleet bus and every agent container share arcadia-net. */
+export async function ensureFleetNetwork(): Promise<void> {
+  await ensureFleetBus();
+  const names = await listAgentNames();
+
+  for (const agentName of names) {
+    const state = await getContainerState(agentName);
+    if (state === "missing") continue;
+    try {
+      await connectAgentToNetwork(containerName(agentName), agentName);
+    } catch {
+      // Skip agents that fail to join the network
+    }
+  }
+}
+
+/** Join a single agent (and the bus) to arcadia-net. */
+export async function ensureAgentNetwork(name: string): Promise<void> {
+  const state = await getContainerState(name);
+  if (state === "missing") return;
+  await ensureFleetBus();
+  await connectAgentToNetwork(containerName(name), name);
+}
+
 /** Refresh fleet mailboxes, scripts, and AGENTS.md across all agents. */
 export async function syncFleetToAllAgents(): Promise<void> {
+  await ensureFleetNetwork();
   const names = await listAgentNames();
 
   for (const agentName of names) {
@@ -167,8 +192,7 @@ async function buildAgentScriptInstallScript(): Promise<string> {
 }
 
 export async function syncAgentScripts(name: string): Promise<void> {
-  await ensureFleetBus();
-  await connectAgentToNetwork(containerName(name));
+  await ensureAgentNetwork(name);
 
   const installScript = [
     "command -v jq >/dev/null || (apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq jq)",
@@ -319,6 +343,8 @@ ARCADIA_OPENCODE_EOF`,
     `${CONTAINER_LABEL}=${name}`,
     "--network",
     ARCADIA_NETWORK,
+    "--network-alias",
+    name,
     "--volume",
     `${WORKSPACE_VOLUME}:${workspace}`,
     "--workdir",
