@@ -28,11 +28,11 @@ program
   });
 
 program
-  .command("possess <name>")
-  .description("Possess an agent (interactive shell)")
+  .command("enter <name>")
+  .description("Enter an agent (interactive shell)")
   .action(async (name: string) => {
-    const { possessCommand } = await import("./commands/lifecycle.js");
-    await possessCommand(name);
+    const { enterCommand } = await import("./commands/lifecycle.js");
+    await enterCommand(name);
   });
 
 program

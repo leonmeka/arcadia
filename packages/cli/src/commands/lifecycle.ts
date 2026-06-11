@@ -37,12 +37,12 @@ export async function summonCommand(name: string): Promise<void> {
   console.log(`${name} is summoned`);
 }
 
-export async function possessCommand(name: string): Promise<void> {
+export async function enterCommand(name: string): Promise<void> {
   await ensureDocker();
   await ensureAgentAwake(name);
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    throw new Error("arcadia possess requires an interactive terminal.");
+    throw new Error("arcadia enter requires an interactive terminal.");
   }
 
   const home = agentHome(name);
