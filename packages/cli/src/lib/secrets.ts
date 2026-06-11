@@ -1,37 +1,34 @@
 import prompts from "prompts";
-import {
-  MissingSecretsError,
-  resolveSecrets,
-  setSecret,
-} from "@arcadia/core";
+import { getSecret, setSecret } from "@arcadia/core";
 
 export async function ensureSecrets(
   required: string[]
 ): Promise<Record<string, string>> {
-  const provided: Record<string, string> = {};
+  const resolved: Record<string, string> = {};
 
-  while (true) {
-    try {
-      return await resolveSecrets(required, provided);
-    } catch (error) {
-      if (!(error instanceof MissingSecretsError)) {
-        throw error;
-      }
+  for (const secret of required) {
+    const stored = await getSecret(secret);
+    const response = await prompts({
+      type: "password",
+      name: "value",
+      message: stored
+        ? `${secret}\n(Press enter to use stored value)`
+        : `${secret}`,
+    });
 
-      for (const secret of error.missing) {
-        const response = await prompts({
-          type: "password",
-          name: "value",
-          message: `${secret} required\n\nEnter value:`,
-        });
-
-        if (!response.value) {
-          throw new Error(`Secret ${secret} is required`);
-        }
-
-        await setSecret(secret, response.value);
-        provided[secret] = response.value;
-      }
+    if (response.value) {
+      await setSecret(secret, response.value);
+      resolved[secret] = response.value;
+      continue;
     }
+
+    if (stored) {
+      resolved[secret] = stored;
+      continue;
+    }
+
+    throw new Error(`Secret ${secret} is required`);
   }
+
+  return resolved;
 }
